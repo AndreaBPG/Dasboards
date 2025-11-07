@@ -5,8 +5,16 @@ import pandas as pd
 import plotly.express as pl
 import matplotlib.pyplot as plt
 
+# Cargar CSS externo
+def cargar_css(ruta):
+    with open(ruta) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# 🧵 Llamar la función con tu archivo
+cargar_css("style.css")
+
+
 #Configurar la página principal del dashboard
-st.set_page_config(page_title="App de Gestión", layout="wide")
+st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # Menú lateral principal con navegación entre páginas
 st.sidebar.title("Soluciones Wireless")

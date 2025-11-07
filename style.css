@@ -1,0 +1,39 @@
+/* estilos.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+body {
+    background-color: #113853;
+}
+
+h1 {
+    color: #d21e3f;
+    font-size: 36px;
+    font-weight: bold;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #6bacf2;
+}
+
+/* Fondo y texto del selectbox desplegado */
+div[data-testid="stSelectbox"] {
+    background-color: #ffffff; /* Fondo del contenedor */
+    border-radius: 8px;
+    padding: 6px;
+    border: 1px solid #1f77b4;
+}
+
+/* Label del selectbox */
+div[data-testid="stSelectbox"] label {
+    color: #062942;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Texto seleccionado dentro del selectbox */
+div[data-testid="stSelectbox"] .css-1wa3eu0-placeholder,
+div[data-testid="stSelectbox"] .css-1uccc91-singleValue {
+    color: #333333; /* Color del texto seleccionado */
+    background-color: transparent; /* Evita fondo negro */
+}
+
