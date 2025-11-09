@@ -5,6 +5,12 @@ import pandas as pd
 import plotly.express as pl
 import matplotlib.pyplot as plt
 
+path = "Consolidado Cobranzas.xlsx"#cargando documento
+df_cliente = pd.read_excel(path, sheet_name="Dim_Clientes")#hoja excel 
+df_Factura = pd.read_excel(path, sheet_name="Dim_Facturas")#hoja excel
+
+df_cliente.set_index('id_cliente', inplace=True) #para colocar los indeces id_cliente como los indes de la tabla en panda
+
 # Cargar CSS externo
 def cargar_css(ruta):
     with open(ruta) as f:
@@ -17,7 +23,17 @@ cargar_css("style.css")
 st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # Menú lateral principal con navegación entre páginas
-st.sidebar.title("Soluciones Wireless")
+st.sidebar.markdown("""
+<h1 style='
+    font-family: "Montserrat", sans-serif;
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: 500;
+    margin-bottom: 10px;
+'>
+Soluciones Wireless
+</h1>
+""", unsafe_allow_html=True)
 pagina = st.sidebar.radio("Ir a:", ["Dashboard de Clientes", "Dashboard Facturacion"])
 
 # ================================
@@ -43,8 +59,18 @@ if pagina == "Dashboard de Clientes":
         'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ])
 
-    # Título y descripción de la sección
-    st.title("📊 Dashboard de Clientes")
+    st.markdown("""
+<h1 style='
+    font-family: "Roboto", sans-serif;
+    font-size: 32px;
+    color: #96d3ff;
+    font-weight: 600;
+    margin-bottom: 20px;
+'>
+📊 Dashboard de Clientes
+</h1>
+""", unsafe_allow_html=True)
+    
     st.markdown("Selecciona los filtros en el menú lateral para visualizar los KPIs.")
     # Aquí se insertará el bloque de KPIs y visualizaciones más adelante
 
@@ -68,9 +94,17 @@ elif pagina == "Dashboard Facturacion":
         "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ])
 
-    # Título y descripción de la sección
-    st.title("💰 Dashboard de Facturación")
-    st.markdown(f"Visualizando **{tipo_dato}** para el período seleccionado.")
+#Color y estilo al titulo de la pagina
+    st.markdown("""
+<h1 style='
+    font-family: "Roboto", sans-serif;
+    font-size: 32px;
+    color: #96d3ff;
+    font-weight: 600;
+    margin-bottom: 20px;
+'>
+💰 Dashboard de Facturación
+</h1>
+""", unsafe_allow_html=True)
+    st.markdown(f"Visualizando **{tipo_dato}** para el período seleccionado.")    
     # Aquí se insertará la lógica para mostrar KPIs, tablas o gráficos de facturación
-
-
