@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[92]:
+# In[1]:
 
 
 import streamlit as st
@@ -13,18 +13,17 @@ import matplotlib.pyplot as plt
 
 # ##Cargando bases de datos
 
-# In[93]:
+# In[2]:
 
 
-path = "Consolidado Cobranzas.xlsx"#cargando documento
+path = "datos_sw.xlsx"#Cargando datos
 #leyendo hojas
-df_cliente = pd.read_excel(path, sheet_name="Dim_Clientes")#hoja excel 
-df_Factura = pd.read_excel(path, sheet_name="Dim_Facturas")#hoja excel
+df= pd.read_excel(path)
 
 
 # ##Arreglos de la base de datos
 
-# In[94]:
+# In[3]:
 
 
 #===============================================================
@@ -32,43 +31,58 @@ df_Factura = pd.read_excel(path, sheet_name="Dim_Facturas")#hoja excel
 #================================================================
 
 #convertir texto a minuscula y limpiar espacios
-df_cliente = df_cliente.apply(lambda col: col.str.lower().str.strip() if col.dtype == "object" else col)
+cols_texto = ['id_estatus_servicio_cliente', 'id_municipio_cliente','id_plan_internet_cliente']
+for col in cols_texto:
+    df[col] = df[col].astype(str).str.lower().str.strip()
 
 #normalizar nombres de columnas
-df_cliente.columns = df_cliente.columns.str.strip().str.lower().str.replace(' ', '_')
 
-df_cliente.head()
-
-
-# In[95]:
+df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+df.head()
 
 
-df_cliente.drop('movil',axis=1, inplace=True)# Elimninar columnas
-df_cliente.drop('correo',axis=1, inplace=True)# Elimninar columnas
-df_cliente.drop('cedula',axis=1, inplace=True)# Elimninar columnas
-df_cliente.drop('direccion_principal',axis=1, inplace=True)# Elimninar columnas
-df_cliente.drop('column27',axis=1, inplace=True)# Elimninar columnas
-df_cliente.drop('nombre',axis=1, inplace=True)# Elimninar columnas
-df_cliente.head()
+# In[4]:
 
 
-# In[96]:
+df.set_index('codigo_cliente', inplace=True) #para colocar los indeces id_cliente como los indes de la tabla en panda
+df.head()
 
 
-df_cliente.set_index('id_cliente', inplace=True) #para colocar los indeces id_cliente como los indes de la tabla en panda
-df_cliente.head()
+# ##extraer fechas para usarlos
+
+# In[5]:
 
 
-# In[97]:
+# Extraer componentes de la fecha columnas separadas con datos de las fechas instalacion
+df['dia'] = df['f_instalacion_cliente'].dt.day #dia
+df['mes'] = df['f_instalacion_cliente'].dt.month #mes
+df['año'] = df['f_instalacion_cliente'].dt.year #año
 
 
-#Filtrar registros con fecha válida usarlas en el kpis
-df_con_fecha = df_cliente[df_cliente['fecha_instalacion'].notna()]
+# In[12]:
+
+
+df.head()
+
+
+# #Validacoin de datos
+
+# In[6]:
+
+
+# Revisar valores nulos
+df.isnull().sum()
+# Revisar valores únicos en columnas clave
+df['id_municipio_cliente'].unique()
+df['id_estatus_servicio_cliente'].unique()
+df['año'].unique()
+df['mes'].unique()
+df['dia'].unique()
 
 
 # ##Cargando css exterior personalizado
 
-# In[98]:
+# In[7]:
 
 
 #===========================
@@ -84,7 +98,7 @@ cargar_css("style.css")
 
 # ##Configuracion de la pagina
 
-# In[99]:
+# In[8]:
 
 
 #===========================================
@@ -96,7 +110,7 @@ st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # ##Menu
 
-# In[100]:
+# In[9]:
 
 
 #===============================
@@ -126,12 +140,13 @@ pagina = st.sidebar.radio("Ir a:", ["Dashboard de Clientes", "Dashboard Facturac
 # ================================
 
 if pagina == "Dashboard de Clientes":
+
     # 🎛️ Filtros especificos
     st.sidebar.subheader("Filtros de Cliente")
 
     cliente = st.sidebar.selectbox("Clientes:", ["Todo", "Nuevos", "Activos", "Suspendidos", "Retirados"])
 
-    ubicacion = st.sidebar.selectbox("Ubicación:", ["Nada", "Barcelona", "Lechería", "Puerto la Cruz"])
+    ubicacion = st.sidebar.selectbox("Ubicación/Municipo:", ["Nada", "Bolivar", "Urbaneja", "Satillo"])
 
     fecha = st.sidebar.selectbox("Año:", ["Nada", "2019", "2020", "2021", "2022", "2023", "2024"])
 
@@ -139,7 +154,11 @@ if pagina == "Dashboard de Clientes":
         "Nada", "Enero", "Febrero", "Marzo", "Abril", "Mayo",
         "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ])
+
+    #===============================
     # 🧩 Título del dashboard
+    #===============================
+
     st.markdown("""
     <h1 style='
         font-family: "Roboto", sans-serif;
@@ -152,20 +171,140 @@ if pagina == "Dashboard de Clientes":
     </h1>
     """, unsafe_allow_html=True)
 
+
+    #========================
+    #Grafico barra de estado
+    #========================
+
+    def grafico_estado(df_input):
+
+     def grafico_estado(df_input):
+        if df_input.empty:
+          return px.bar(title="⚠️ No hay datos para mostrar")
+
+     resumen = df_input.groupby('id_estatus_servicio_cliente').size().reset_index(name='cantidad')
+     resumen = resumen.rename(columns={'id_estatus_servicio_cliente': 'estado'})
+
+     fig = px.bar(
+        resumen,
+        x='estado',
+        y='cantidad',
+        color='estado',
+        title='📊 Total de Clientes por Estado',
+        color_discrete_map={
+            'activo': '#2ECC71',
+            'suspendido': '#F1C40F',
+            'retirado': '#E74C3C'
+        }
+     )
+     return fig
+
+    #======================================
+    #Grafico de Lineas por año y Mes
+    #======================================
+
+    def grafico_instalaciones(df_input):
+
+      if df_input.empty:
+          return px.line(title="⚠️ No hay datos para mostrar")
+
+      df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
+      df_temp['periodo'] = df_temp['f_instalacion_cliente'].dt.to_period('M').dt.to_timestamp()
+
+      resumen = df_temp.groupby('periodo').size().reset_index(name='cantidad')
+
+      fig = px.line(
+         resumen,
+         x='periodo',
+         y='cantidad',
+         markers=True,
+         title='📈 Instalaciones por Mes y Año',
+      )
+      fig.update_traces(line=dict(color='#FF5733'))
+      return fig
+
+    #==============================================================
+    # 📊 Clientes por ubicación (cuando se filtra por estado + ubicación)
+    #==============================================================
+
+    def grafico_estado_por_ubicacion(df_input):
+
+        if df_input.empty:
+          return px.bar(title="⚠️ No hay datos para mostrar")
+
+        resumen = (
+        df_input.groupby(['id_municipio_cliente','id_estatus_servicio_cliente'])
+                .size()
+                .reset_index(name='cantidad')
+        )
+
+        fig = px.bar(
+         resumen,
+         x='id_municipio_cliente',
+         y='cantidad',
+         color='id_estatus_servicio_cliente',
+         barmode='group',
+         title='📊 Clientes por Estado en cada Municipio',
+         color_discrete_map={
+            'activo': '#2ECC71',
+            'suspendido': '#F1C40F',
+            'retirado': '#E74C3C'
+          }
+        )
+        return fig
+
+    #===============================================
+    # 📈 Evolución mensual del estado filtrado
+    #==============================================
+
+    def grafico_lineas_estado(df_input):
+
+         if df_input.empty:
+            return px.line(title="⚠️ No hay datos para mostrar")
+
+         df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
+         df_temp['periodo'] = df_temp['f_instalacion_cliente'].dt.to_period('M').dt.to_timestamp()
+
+         resumen = (
+         df_temp.groupby(['periodo','id_municipio_cliente','id_estatus_servicio_cliente'])
+               .size()
+                .reset_index(name='cantidad')
+        )
+
+         fig = px.line(
+          resumen,
+          x='periodo',
+          y='cantidad',
+          color='id_estatus_servicio_cliente',
+          line_group='id_municipio_cliente',
+          markers=True,
+          title='📈 Evolución Mensual de Clientes por Estado y Municipio',
+          color_discrete_map={
+            'activo': '#2ECC71',
+            'suspendido': '#F1C40F',
+            'retirado': '#E74C3C'
+           }
+        )
+         return fig
+
+
+    #================================
     # 🧮 Aplicar filtros
-    df_filtrado = df_cliente.copy()
+    #================================
+
+    df_filtrado = df.copy()
 
     if cliente.lower() != "Todo":
-        df_filtrado = df_filtrado[df_filtrado["estado"] == cliente.lower()]
+        df_filtrado = df_filtrado[df_filtrado["id_estatus_servicio_cliente"] == cliente.lower()]
 
     if ubicacion.lower() != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["zona"] == ubicacion.lower()]
+        df_filtrado = df_filtrado[df_filtrado["id_municipio_cliente"] == ubicacion.lower()]
 
     if fecha != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["fecha_instalacion"].dt.year == int(fecha)]
+        df_filtrado = df_filtrado[df_filtrado["f_instalacion_cliente"].dt.year == int(fecha)]
 
     if mes != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["fecha_instalacion"].dt.month_name().str.lower() == mes.lower()]
+        df_filtrado = df_filtrado[df_filtrado["f_instalacion_cliente"].dt.month_name().str.lower() == mes.lower()]
 
     # ✅ Detectar si se seleccionó un estado específico sin filtros adicionales
     estado_especifico = cliente != "Todo"
@@ -175,84 +314,6 @@ if pagina == "Dashboard de Clientes":
     if estado_especifico and sin_filtros_adicionales:
       st.info("🔎 Selecciona los filtros que quieras aplicar para esta sección.")  
 
-    #========================
-    #Grafico barra de estado
-    #========================
-
-    def grafico_estado(df):
-     resumen = df['estado'].value_counts().reset_index()
-     resumen.columns = ['estado', 'cantidad']
-
-     fig = px.bar(
-        resumen,
-        x='estado',
-        y='cantidad',
-        color='estado',
-        title='📊 Total de Clientes por Estado',
-        color_discrete_map={
-        'activo': '#2ECC71',      # verde
-        'suspendido': '#F1C40F',  # amarillo
-        'retirado': '#E74C3C'     # rojo
-        }
-    )
-     return fig
-
-    #======================================
-    #Grafico de Lineas por año y Mes
-    #======================================
-
-    def grafico_instalaciones(df):
-     df = df[df['fecha_instalacion'].notna()].copy()
-     df['periodo'] = df['fecha_instalacion'].dt.to_period('M').dt.to_timestamp()
-
-     resumen = df.groupby('periodo').size().reset_index(name='cantidad')
-
-     fig = px.line(
-        resumen,
-        x='periodo',          # eje X: mes y año
-        y='cantidad',         # eje Y: instalaciones
-        markers=True,
-        title='📈 Instalaciones por Mes y Año',
-    )
-     fig.update_traces(line=dict(color='#FF5733'))  # naranja fuerte
-     return fig
-
-    #==============================================================
-    # 📊 Clientes por ubicación (cuando se filtra por estado + ubicación)
-    #==============================================================
-
-    def grafico_estado_por_ubicacion(df):
-        resumen = df['zona'].value_counts().reset_index()
-        resumen.columns = ['ubicacion', 'cantidad']
-
-        fig = px.bar(
-            resumen,
-            x='ubicacion',
-            y='cantidad',
-            color='ubicacion',
-            title='📊 Clientes por Ubicación',
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        return fig
-    #===============================================
-    # 📈 Evolución mensual del estado filtrado
-    #==============================================
-
-    def grafico_lineas_estado(df):
-        df = df[df['fecha_instalacion'].notna()].copy()
-        df['periodo'] = df['fecha_instalacion'].dt.to_period('M').dt.to_timestamp()
-        resumen = df.groupby('periodo').size().reset_index(name='cantidad')
-
-        fig = px.line(
-            resumen,
-            x='periodo',
-            y='cantidad',
-            markers=True,
-            title='📈 Evolución Mensual del Estado Seleccionado'
-        )
-        fig.update_traces(line=dict(color='#3498DB'))  # azul
-        return fig
-
     # ========================
     # KPIs y gráficos según lógica
     # ========================
@@ -260,34 +321,45 @@ if pagina == "Dashboard de Clientes":
     vista_general = cliente == "Todo" and ubicacion == "Nada" and fecha == "Nada" and mes == "Nada"
 
     # ✅ Elegir fuente de datos
-    df_kpi = df_cliente.copy() if vista_general else df_filtrado.copy()
+    df_kpi = df.copy() if vista_general else df_filtrado.copy()
 
     # ✅ Verificar si hay datos
     if df_kpi.empty:
      st.warning("⚠️ No hay datos para mostrar con los filtros seleccionados.")
 
     else:
-     # 📈 KPIs
-     #Clientes totales
-      total_clientes = df_kpi.index.nunique()
-     #clientes activos
-      activos = (df_kpi["estado"] == "activo").sum()
-     #clientes suspendidos
-      suspendidos = (df_kpi["estado"] == "suspendido").sum()
-     #clientes retirados
-      retirados = (df_kpi["estado"] == "retirado").sum()
+     # ============================
+     # 📈 KPIs por cliente único (último estado)
+     # ============================
 
-      col1, col2, col3, col4 = st.columns(4)
-      col1.metric("📌 Total Clientes", total_clientes)
-      col2.metric("✅ Activos", activos)
-      col3.metric("⚠️ Suspendidos", suspendidos)
-      col4.metric("❌ Retirados", retirados)
+    # Ordena por fecha para tomar el último estado por cliente
+    # Usa la columna que mejor represente la "actualidad" del estado
+     df_kpi = df_kpi.sort_values(by='f_transaccion', kind='mergesort') #filtracion en la clumna f_transaccion
+
+    # Elimina duplicados manteniendo solo el último registro por cliente (index = codigo_cliente)
+     df_estado_unico = df_kpi[~df_kpi.index.duplicated(keep='last')] #elimina duplicados para esta ocasion
+
+     #Clientes totales
+     total_clientes = df_estado_unico.index.nunique()
+     #clientes activos
+     activos = (df_estado_unico["id_estatus_servicio_cliente"] == "activo").sum()
+     #clientes suspendidos
+     suspendidos = (df_estado_unico["id_estatus_servicio_cliente"] == "suspendido").sum()
+     #clientes retirados
+     retirados = (df_estado_unico["id_estatus_servicio_cliente"] == "retirado").sum()
+
+     #mostrar los kpis
+     col1, col2, col3, col4 = st.columns(4)
+     col1.metric("📌 Total Clientes", total_clientes)
+     col2.metric("✅ Activos", activos)
+     col3.metric("⚠️ Suspendidos", suspendidos)
+     col4.metric("❌ Retirados", retirados)
 
 
       # ✅ Mostrar gráficos por estado + ubicación si están seleccionados
-    if cliente != "Todo" and ubicacion != "Nada":
+     if cliente != "Todo" and ubicacion != "Nada":
 
-        subtitulo = f"📍 Estado: {cliente} | Ubicación: {ubicacion}"
+        subtitulo = f"📍 Estado: {cliente} | Ubicación: {ubicacion}" #titulo
 
         if fecha != "Nada":
             subtitulo += f" | Año: {fecha}"
@@ -296,22 +368,26 @@ if pagina == "Dashboard de Clientes":
             subtitulo += f" | Mes: {mes}"
         st.subheader(subtitulo)
 
+       #columanas para visualizar las tablas
         col1, col2 = st.columns(2)
 
         with col1:
+            #mostrar graficos
             st.plotly_chart(grafico_estado_por_ubicacion(df_filtrado), use_container_width=False)
         with col2:
+            #mostrar grafico
             st.plotly_chart(grafico_lineas_estado(df_filtrado), use_container_width=False)
 
 # ✅ Mostrar gráficos generales si no hay filtros activos
-    elif vista_general:
+     elif vista_general:
 
-      col1, col2 = st.columns(2)
-
-      with col1:
-        st.plotly_chart(grafico_estado(df_cliente), use_container_width=False)
-      with col2:
-        st.plotly_chart(grafico_instalaciones(df_cliente), use_container_width=False)
+        col1, col2 = st.columns(2)
+        with col1:
+          #mostrar grafico
+           st.plotly_chart(grafico_estado(df_estado_unico), use_container_width=False)
+        with col2:
+          #mostrar grafico
+          st.plotly_chart(grafico_instalaciones(df_estado_unico), use_container_width=False)
 
 # ================================
 # 💰 Página: Dashboard de Facturación
@@ -344,5 +420,4 @@ elif pagina == "Dashboard Facturacion":
 
     st.markdown(f"Visualizando **{tipo_dato}** para el período seleccionado.")
     # Aquí puedes agregar KPIs y gráficos de facturación más adelante
-
 
