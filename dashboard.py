@@ -59,7 +59,7 @@ df['mes'] = df['f_instalacion_cliente'].dt.month #mes
 df['año'] = df['f_instalacion_cliente'].dt.year #año
 
 
-# In[12]:
+# In[6]:
 
 
 df.head()
@@ -67,7 +67,7 @@ df.head()
 
 # #Validacoin de datos
 
-# In[6]:
+# In[7]:
 
 
 # Revisar valores nulos
@@ -82,7 +82,7 @@ df['dia'].unique()
 
 # ##Cargando css exterior personalizado
 
-# In[7]:
+# In[8]:
 
 
 #===========================
@@ -98,7 +98,7 @@ cargar_css("style.css")
 
 # ##Configuracion de la pagina
 
-# In[8]:
+# In[9]:
 
 
 #===========================================
@@ -110,7 +110,7 @@ st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # ##Menu
 
-# In[9]:
+# In[10]:
 
 
 #===============================
@@ -178,26 +178,27 @@ if pagina == "Dashboard de Clientes":
 
     def grafico_estado(df_input):
 
-     def grafico_estado(df_input):
         if df_input.empty:
           return px.bar(title="⚠️ No hay datos para mostrar")
 
-     resumen = df_input.groupby('id_estatus_servicio_cliente').size().reset_index(name='cantidad')
-     resumen = resumen.rename(columns={'id_estatus_servicio_cliente': 'estado'})
+        resumen = df_input.groupby('id_estatus_servicio_cliente').size().reset_index(name='cantidad')
+        resumen = resumen.rename(columns={'id_estatus_servicio_cliente': 'estado'})
 
-     fig = px.bar(
-        resumen,
-        x='estado',
-        y='cantidad',
-        color='estado',
-        title='📊 Total de Clientes por Estado',
-        color_discrete_map={
+        fig = px.bar(
+         resumen,
+         x='cantidad',
+         y='estado',
+         orientation='h',
+         color='estado',
+         title='📊 Total de Clientes por Estado',
+         color_discrete_map={
             'activo': '#2ECC71',
             'suspendido': '#F1C40F',
             'retirado': '#E74C3C'
         }
-     )
-     return fig
+        )
+        fig.update_layout(xaxis_title= 'Cantidad de Clientes', yaxis_title='Estados')
+        return fig
 
     #======================================
     #Grafico de Lineas por año y Mes
@@ -251,43 +252,37 @@ if pagina == "Dashboard de Clientes":
             'retirado': '#E74C3C'
           }
         )
+        fig.update_layout(xaxis_title= 'Municipios', yaxis_title='Cantidad de Clientes')
         return fig
 
     #===============================================
     # 📈 Evolución mensual del estado filtrado
     #==============================================
 
-    def grafico_lineas_estado(df_input):
+    def grafico_clientes_nuevos(df_input):
 
-         if df_input.empty:
-            return px.line(title="⚠️ No hay datos para mostrar")
+        if df_input.empty:
+          return px.line(title="⚠️ No hay datos para mostrar")
 
-         df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
-         df_temp['periodo'] = df_temp['f_instalacion_cliente'].dt.to_period('M').dt.to_timestamp()
+        # Filtro fechas validas
+        df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
 
-         resumen = (
-         df_temp.groupby(['periodo','id_municipio_cliente','id_estatus_servicio_cliente'])
-               .size()
-                .reset_index(name='cantidad')
+        #extraer por anio
+        df_temp['año'] = df_temp ['f_instalacion_cliente'].dt.year
+
+        resumen = df_temp.groupby('año').size().reset_index(name='cantidad')
+
+        #grafico lineal 
+        fig = px.line(
+            resumen,
+            x='año',
+            y='cantidad',
+            markers=True,
+            title = 'Clientes nuevos por Año',
         )
-
-         fig = px.line(
-          resumen,
-          x='periodo',
-          y='cantidad',
-          color='id_estatus_servicio_cliente',
-          line_group='id_municipio_cliente',
-          markers=True,
-          title='📈 Evolución Mensual de Clientes por Estado y Municipio',
-          color_discrete_map={
-            'activo': '#2ECC71',
-            'suspendido': '#F1C40F',
-            'retirado': '#E74C3C'
-           }
-        )
-         return fig
-
-
+        fig.update_traces(line = dict(color='#3498DB', width = 2))
+        fig.update_layout(xaxis_title= 'Año', yaxis_title='Clientes Nuevos')
+        return fig
     #================================
     # 🧮 Aplicar filtros
     #================================
@@ -295,10 +290,10 @@ if pagina == "Dashboard de Clientes":
     df_filtrado = df.copy()
 
     if cliente.lower() != "Todo":
-        df_filtrado = df_filtrado[df_filtrado["id_estatus_servicio_cliente"] == cliente.lower()]
+        df_filtrado = df_filtrado[df_filtrado["id_estatus_servicio_cliente"].str.lower() == cliente.lower()]
 
     if ubicacion.lower() != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["id_municipio_cliente"] == ubicacion.lower()]
+        df_filtrado = df_filtrado[df_filtrado["id_municipio_cliente"].str.lower() == ubicacion.lower()]
 
     if fecha != "Nada":
         df_filtrado = df_filtrado[df_filtrado["f_instalacion_cliente"].dt.year == int(fecha)]
@@ -369,14 +364,12 @@ if pagina == "Dashboard de Clientes":
         st.subheader(subtitulo)
 
        #columanas para visualizar las tablas
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(2)
 
         with col1:
             #mostrar graficos
-            st.plotly_chart(grafico_estado_por_ubicacion(df_filtrado), use_container_width=False)
-        with col2:
-            #mostrar grafico
-            st.plotly_chart(grafico_lineas_estado(df_filtrado), use_container_width=False)
+            st.plotly_chart(grafico_estado_por_ubicacion(df_estado_unico), use_container_width=False)
+
 
 # ✅ Mostrar gráficos generales si no hay filtros activos
      elif vista_general:
@@ -389,7 +382,13 @@ if pagina == "Dashboard de Clientes":
           #mostrar grafico
           st.plotly_chart(grafico_instalaciones(df_estado_unico), use_container_width=False)
 
-# ================================
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.plotly_chart(grafico_estado_por_ubicacion(df_estado_unico), use_container_width=False)
+
+        with col4:
+            st.plotly_chart(grafico_clientes_nuevos(df_estado_unico), use_container_width=False) 
 # 💰 Página: Dashboard de Facturación
 # ================================
 
