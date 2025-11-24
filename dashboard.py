@@ -446,6 +446,12 @@ elif pagina == "Dashboard Facturacion":
      # Selección del tipo de dato a visualizar (Ingresos, Egresos, Gastos)
     tipo_dato = st.sidebar.selectbox("Tipo de facturacion:", ["ingresos"])
 
+    # Selectbox de municipio
+    municipio = st.sidebar.selectbox(
+    "Selecciona el municipio",
+    ["Todo", "bolivar","urbaneja", "sotillo"]
+    )
+
     # Selección del año de facturación
     año_factura = st.sidebar.selectbox("Año:", ["Todo", "2019","2020","2021","2022", "2023", "2024","2025"])
 
@@ -479,19 +485,23 @@ elif pagina == "Dashboard Facturacion":
     # 📂 Preparación del DataFrame
     # ---------------------------
 
-    # 👉 Copiamos el DataFrame original (df) para trabajar solo con facturación
+    #  Copiamos el DataFrame original (df) para trabajar solo con facturación
     df_facturacion = df.copy()
 
-    # 👉 Aseguramos que f_emision_factura sea datetime (si no lo está ya)
+    #  Aseguramos que f_emision_factura sea datetime (si no lo está ya)
     #    Esto es importante para poder usar .dt.year, .dt.month y agrupar por periodos.
     if not pd.api.types.is_datetime64_any_dtype(df_facturacion["f_emision_factura"]):
         df_facturacion["f_emision_factura"] = pd.to_datetime(df_facturacion["f_emision_factura"], errors="coerce")
 
-    # 👉 Filtro por año si se selecciona uno específico
+    #  Filtro por municipio
+    if municipio != "Todo":
+       df_facturacion = df_facturacion[df_facturacion["id_municipio_cliente"] == municipio]
+
+    #  Filtro por año si se selecciona uno específico
     if año_factura != "Todo":
         df_facturacion = df_facturacion[df_facturacion['f_emision_factura'].dt.year == int(año_factura)]
 
-    # 👉 Filtro por mes si se selecciona uno específico
+    # Filtro por mes si se selecciona uno específico
     if mes_factura != "Todo":
         MESES = {
             "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4,
@@ -500,13 +510,6 @@ elif pagina == "Dashboard Facturacion":
         }
         df_facturacion = df_facturacion[df_facturacion['f_emision_factura'].dt.month == MESES[mes_factura]]
 
-    # 👉 Filtro por tipo de dato
-    if tipo_dato == "Ingresos":
-     df_facturacion = df_facturacion[df_facturacion['monto_transaccion'] > 0]
-    elif tipo_dato == "Egresos":
-     df_facturacion = df_facturacion[df_facturacion['monto_transaccion'] < 0]
-    elif tipo_dato == "Gastos":
-     df_facturacion = df_facturacion[df_facturacion['tipo_transaccion'] == "Gasto"]
 
     # ---------------------------
     # 📊 KPIs de Facturación
@@ -610,10 +613,28 @@ elif pagina == "Dashboard Facturacion":
     )
     fig_tipo.update_layout(yaxis_title="Total Facturado ($)", xaxis_title="Tipo de Factura")
 
+  # ============================================================
+  # 🏙️ Gráfico 4: Ingresos por Municipio
+  # ============================================================
+
+   # Agrupamos por id_municipio_cliente y sumamos ingresos
+    resumen_municipio = df_facturacion.groupby('id_municipio_cliente')['monto_transaccion'].sum().reset_index()  
+
+    fig_municipio = px.line(
+    resumen_municipio,
+    x='id_municipio_cliente',      # eje X = municipios
+    y='monto_transaccion',         # eje Y = suma de ingresos
+    markers=True,                  # puntos en la línea
+    title="🏙️ Ingresos por Municipio"
+   )
+
+    fig_municipio.update_traces(line=dict(color='#9B59B6', width=2))
+    fig_municipio.update_layout(yaxis_title="Ingresos ($)", xaxis_title="Municipio")
+
 # ============================================================
 # 📌 Layout condicional
 # ============================================================
-    if año_factura == "ingresos" and mes_factura == "Todo":
+    if año_factura == "Todo" and mes_factura == "Todo":
 
     # Mostrar en columnas (2x2)
      col1, col2 = st.columns(2)
@@ -625,9 +646,11 @@ elif pagina == "Dashboard Facturacion":
      col3, col4 = st.columns(2)
      with col3:
         st.plotly_chart(fig_tipo, use_container_width=True)
+     with col4:
+         st.plotly_chart(fig_municipio, use_container_width=True)
 
     else:
-    # Mostrar apilados
+    # Mostrar
         col1, col2 = st.columns(2)
         with col1:
          st.plotly_chart(fig_ingresos, use_container_width=True)
@@ -637,6 +660,8 @@ elif pagina == "Dashboard Facturacion":
         col3, col4 = st.columns(2)
         with col3:
          st.plotly_chart(fig_tipo, use_container_width=True)
+        with col4:
+         st.plotly_chart(fig_municipio, use_container_width=True)
 
 
 # In[12]:
