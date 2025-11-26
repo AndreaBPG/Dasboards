@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[14]:
 
 
 import streamlit as st
@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 
 # ##Cargando bases de datos
@@ -82,21 +83,21 @@ df['dia'].unique()
 
 # ##Cargando css exterior personalizado
 
-# In[8]:
+# In[ ]:
 
 
 #===========================
 # Cargar CSS externon personalizado
 #==========================
 
-def cargar_css(ruta):
-    with open(ruta) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-# 🧵 Llamar la función con tu archivo
+def cargar_css(ruta="style.css"):
+    with open(ruta, "r") as f:
+        css = f.read()
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+# Llamada a la función
 cargar_css("style.css")
 
-
-# ##Configuracion de la pagina
 
 # In[9]:
 
@@ -139,6 +140,15 @@ pagina = st.sidebar.radio("Ir a:", ["Dashboard de Clientes", "Dashboard Facturac
 # Página: Dashboard de Clientes
 # ================================
 
+# 🔧 Reducir el espacio superior del dashboard
+st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 0.5em !important;  /* Puedes ajustar a 0rem, 0.5rem, 1rem según lo que necesites */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 if pagina == "Dashboard de Clientes":
 
     # 🎛️ Filtros especificos
@@ -170,163 +180,6 @@ if pagina == "Dashboard de Clientes":
     📊 Dashboard de Clientes
     </h1>
     """, unsafe_allow_html=True)
-
-
-#=====================================
-#Grafico barra de estado total cliente
-#=====================================
-
-    def grafico_estado(df_input):
-
-        # Agrupar por estado del cliente y contar cuántos hay de cada uno
-        resumen = df_input.groupby('id_estatus_servicio_cliente').size().reset_index(name='cantidad')
-        resumen = resumen.rename(columns={'id_estatus_servicio_cliente': 'estado'})
-
-        # Si el resumen está vacío, mostrar gráfico vacío con mensaje
-        if df_input.empty:
-          return px.bar(title="⚠️ No hay datos para mostrar")
-
-        # Ordenar los estados en el orden lógico del embudo
-        orden_estado = ["suspendido","retirado","activo"]
-        resumen['estado'] = pd.Categorical(resumen['estado'], categories=orden_estado, ordered=True)
-        resumen = resumen.sort_values('estado')
-
-        # Si hay más de un estado, usar gráfico de barras horizontal
-        if resumen['estado'].nunique() > 1:
-
-         fig = px.funnel(
-          resumen,
-          x='cantidad',
-          y='estado',
-          orientation='h',
-          color='estado',
-          title='📊 Total de Clientes por Estado',
-          color_discrete_map={
-            'activo': '#2ECC71',
-            'suspendido': '#F1C40F',
-            'retirado': '#E74C3C'
-           }
-        )
-        else:
-        # Si solo hay un estado, usar gráfico de línea para evitar barra gigante
-         fig = px.line(
-            resumen,
-            x='estado',
-            y='cantidad',
-            markers=True,
-            title='📈 Total de Clientes por Estado'
-        )
-         # Etiquetas de los ejes
-        fig.update_layout(xaxis_title= 'Cantidad de Clientes', yaxis_title='Estados')
-        return fig
-
-#======================================
-#Grafico de Lineas por año y Mes
-#======================================
-
-    def grafico_instalaciones(df_input):
-
-        # Filtrar registros con fecha válida de instalación
-        df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
-
-        # Crear columna 'periodo' con año y mes como timestamp
-        df_temp['periodo'] = df_temp['f_instalacion_cliente'].dt.to_period('M').dt.to_timestamp()
-
-        # Agrupar por periodo y contar instalaciones
-        resumen = df_temp.groupby('periodo').size().reset_index(name='cantidad')
-
-        # Si no hay datos, mostrar gráfico vacío
-        if df_input.empty:
-          return px.line(title="⚠️ No hay datos para mostrar")
-
-        fig = px.line(
-          resumen,
-          x='periodo',
-          y='cantidad',
-          markers=True,
-          title='📈 Instalaciones por Mes y Año',
-        )
-        fig.update_traces(line=dict(color='#FF5733'))
-        return fig
-
-#==============================================================
-# 📊 Clientes por ubicación (cuando se filtra por estado + ubicación)
-#==============================================================
-
-    def grafico_estado_por_ubicacion(df_input):
-
-        # Agrupar por municipio y estado, contar clientes
-        resumen = (
-        df_input.groupby(['id_municipio_cliente','id_estatus_servicio_cliente'])
-                .size()
-                .reset_index(name='cantidad')
-        )
-
-        # Si no hay datos, mostrar gráfico vacío
-        if df_input.empty:
-          return px.bar(title="⚠️ No hay datos para mostrar")
-
-        # Si hay varios municipios, usar gráfico de barras agrupadas
-        if resumen['id_municipio_cliente'].nunique() > 1:
-
-         fig = px.bar(
-          resumen,
-          x='id_municipio_cliente',
-          y='cantidad',
-          color='id_estatus_servicio_cliente',
-          barmode='group',
-          title='📊 Clientes por Estado en cada Municipio',
-          color_discrete_map={
-            'activo': '#2ECC71',
-            'suspendido': '#F1C40F',
-            'retirado': '#E74C3C'
-          }
-        )
-
-        else:
-        # Si solo hay un municipio, usar gráfico de línea
-         fig = px.line(
-            resumen,
-            x='id_municipio_cliente',
-            y='cantidad',
-            markers=True,
-            title='📈 Clientes en Municipio seleccionado'
-        )
-
-        # Etiquetas de los ejes
-        fig.update_layout(xaxis_title= 'Municipios', yaxis_title='Cantidad de Clientes')
-        return fig
-
-#===============================================
-# 📈 Evolución mensual del estado filtrado
-#==============================================
-
-    def grafico_clientes_nuevos(df_input):
-
-        # Filtrar registros con fecha válida
-        df_temp = df_input[df_input['f_instalacion_cliente'].notna()].copy()
-
-        # Extraer año de instalación
-        df_temp['año'] = df_temp['f_instalacion_cliente'].dt.year
-
-         # Agrupar por año y contar clientes
-        resumen = df_temp.groupby('año').size().reset_index(name='cantidad')
-
-        # Si no hay datos, mostrar gráfico vacío
-        if resumen.empty:
-         return px.line(title="⚠️ No hay datos para mostrar")
-
-        #grafico lineal 
-        fig = px.line(
-            resumen,
-            x='año',
-            y='cantidad',
-            markers=True,
-            title = 'Clientes nuevos por Año',
-        )
-        fig.update_traces(line = dict(color='#3498DB', width = 2))
-        fig.update_layout(xaxis_title= 'Año', yaxis_title='Clientes Nuevos')
-        return fig
 
 #================================
 # 🧮 Aplicar filtros
@@ -395,18 +248,10 @@ if pagina == "Dashboard de Clientes":
         # 👉 Contar clientes nuevos
         nuevos = df_nuevos.index.nunique()    
 
-        # Mostrar KPIs
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("📌 Total Clientes", total_clientes)
-        col2.metric("✅ Activos", activos)
-        col3.metric("⚠️ Suspendidos", suspendidos)
-        col4.metric("❌ Retirados", retirados)
-        col5.metric("🆕 Nuevos", nuevos)
-
         # ================================
         # Subtítulo dinámico con filtros
         # ================================
-        subtitulo = "📊 Vista General de Clientes"
+        subtitulo = "📍 Filtros aplicados:"
         if cliente != "Todo":
             subtitulo = f"📍 Estado: {cliente}"
         if ubicacion != "Nada":
@@ -417,22 +262,334 @@ if pagina == "Dashboard de Clientes":
             subtitulo += f" | Mes: {mes}"
         st.subheader(subtitulo)
 
-        # ================================
-        # Mostrar gráficos generales filtrados
-        # Siempre se muestran los mismos 4 gráficos,
-        # pero alimentados con df_estado_unico ya filtrado
-        # ================================
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(grafico_estado(df_estado_unico), use_container_width=True)
-        with col2:
-            st.plotly_chart(grafico_instalaciones(df_estado_unico), use_container_width=True)
+# ======================================
+# 📊 Gráficos de líneas por estado y nuevo
+# =======================================
 
-        col3, col4 = st.columns(2)
-        with col3:
-            st.plotly_chart(grafico_estado_por_ubicacion(df_estado_unico), use_container_width=True)
-        with col4:
-            st.plotly_chart(grafico_clientes_nuevos(df_estado_unico), use_container_width=True)
+    # Diccionario para ordenar meses en español
+        MESES_ORDEN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+               "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+
+        df_estado_unico['mes'] = df_estado_unico['f_instalacion_cliente'].dt.month_name(locale="es_ES")
+
+       # ============
+       # Activos
+       # ===========
+       # Crear resumen de activos por mes
+        resumen_activos = (
+          df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="activo"]
+          .groupby('mes').size().reset_index(name="cantidad")
+        )
+        # Ordenar meses correctamente
+        resumen_activos['mes'] = pd.Categorical(resumen_activos['mes'], categories=MESES_ORDEN, ordered=True)
+        resumen_activos = resumen_activos.sort_values('mes')
+
+        # Gráfico de línea para activos
+        fig_activos = px.line(
+            resumen_activos, 
+            x="mes", 
+            y="cantidad", 
+            markers=True, 
+            title="✅ Activos")
+
+        # Actualizar diseño del gráfico
+        fig_activos.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+        # Personalizar línea
+        fig_activos.update_traces(line=dict(color="#2ECC71", width=2))  # verde
+
+       # ==================
+       # Suspendidos
+       # ==================
+       # Crear resumen de suspendidos por mes
+        resumen_suspendidos = (
+          df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="suspendido"]
+         .groupby('mes').size().reset_index(name="cantidad")
+        )
+
+        # Ordenar meses correctamente
+        resumen_suspendidos['mes'] = pd.Categorical(resumen_suspendidos['mes'], categories=MESES_ORDEN, ordered=True)
+        resumen_suspendidos = resumen_suspendidos.sort_values('mes')
+
+        # Gráfico de línea para suspendidos
+        fig_suspendidos = px.line(
+            resumen_suspendidos, 
+            x="mes", 
+            y="cantidad", 
+            markers=True, 
+            title="⚠️ Suspendidos")
+        # Actualizar diseño del gráfico
+        fig_suspendidos.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+        # Personalizar línea
+        fig_suspendidos.update_traces(line=dict(color="#F1C40F", width=2))  # amarillo
+
+       # ==============
+       # Retirados
+       # ==============
+
+       # Crear resumen de retirados por mes
+        resumen_retirados = (
+         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="retirado"]
+        .groupby('mes').size().reset_index(name="cantidad") # contar por mes
+        )
+
+        # Ordenar meses correctamente
+        resumen_retirados['mes'] = pd.Categorical(resumen_retirados['mes'], categories=MESES_ORDEN, ordered=True)
+        resumen_retirados = resumen_retirados.sort_values('mes')
+
+        # Gráfico de línea para retirados
+        fig_retirados = px.line(
+            resumen_retirados, 
+            x="mes", 
+            y="cantidad", 
+            markers=True, 
+            title="❌ Retirados")
+
+        # Actualizar diseño del gráfico
+        fig_retirados.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+        # Personalizar línea
+        fig_retirados.update_traces(line=dict(color="#E74C3C", width=2))  # rojo
+
+        # ========
+        # Nuevos
+        # ========
+        # Crear resumen de nuevos por mes
+        resumen_nuevos = (
+         df_estado_unico[df_estado_unico['f_instalacion_cliente'].notna()]
+         .groupby('mes').size().reset_index(name="cantidad")
+        )
+
+        # Ordenar meses correctamente
+        resumen_nuevos['mes'] = pd.Categorical(resumen_nuevos['mes'], categories=MESES_ORDEN, ordered=True)
+        resumen_nuevos = resumen_nuevos.sort_values('mes')
+
+        # Gráfico de línea para nuevos
+        fig_nuevos = px.line(
+            resumen_nuevos, 
+            x="mes", 
+            y="cantidad", 
+            markers=True, 
+            title="🆕 Nuevos")
+
+        # Actualizar diseño del gráfico
+        fig_nuevos.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+        # Personalizar línea
+        fig_nuevos.update_traces(line=dict(color="#3498DB", width=2))  # azul
+
+        #===============================
+        # Graficos de planes de internet
+        #===============================
+
+        # Mapear estados reales
+        df_estado_unico['estado_cliente'] = df_estado_unico['id_estatus_servicio_cliente'].replace({
+        'activo': 'Activo',
+        'suspendido': 'Suspendido',   # aquí entran también los morosos
+        'deshabilitado': 'Retirado'
+        })
+
+        # Agrupar por plan y estado
+        resumen_planes_estado = (
+        df_estado_unico.groupby(['id_plan_internet_cliente', 'estado_cliente'])
+        .size()
+        .reset_index(name="cantidad")
+        )
+
+        # Crear gráfico de barras agrupado
+        fig_planes_estado = px.bar(
+         resumen_planes_estado,
+         x="cantidad",
+         y="id_plan_internet_cliente",
+         color="estado_cliente",
+         text="cantidad",
+         title="📊 Distribución de Clientes por Plan y Estado"
+        )
+
+        # Ajustes visuales
+        fig_planes_estado.update_layout(
+         height=450,
+         xaxis_title="Planes de Internet",
+         yaxis_title="Cantidad de Clientes",
+         barmode="stack"  # barras apiladas
+       )
+
+        fig_planes_estado.update_traces(textposition="inside") # mostrar cantidad dentro de barras
+        fig_planes_estado.update_layout(height=500,width=900, showlegend=False)
+
+        # ============================
+        # Activos por Municipio
+        # ============================
+        resumen_activos_mun = (
+         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="activo"]
+         .groupby('id_municipio_cliente').size().reset_index(name="cantidad")
+       )
+        # Gráfico de barras para activos por municipio
+        fig_activos_mun = px.bar(
+         resumen_activos_mun,
+         x="id_municipio_cliente",
+         y="cantidad",
+         text="cantidad",
+         title="✅ Activos"
+        ) 
+        # Actualizar diseño del gráfico
+        fig_activos_mun.update_traces(textposition="outside", marker_color="#2ECC71")
+        # Personalizar línea
+        fig_activos_mun.update_layout(height=500, width=280, showlegend=False,  xaxis_title="Municipio", yaxis_title="Cantidad")
+
+       # ============================
+        # Retirados (deshabilitado) por Municipio
+       # ============================
+        resumen_retirados_mun = (
+         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="retirado"]
+         .groupby('id_municipio_cliente').size().reset_index(name="cantidad")
+        )
+        # Gráfico de barras para retirados por municipio
+        fig_retirados_mun = px.bar(
+         resumen_retirados_mun,
+         x="id_municipio_cliente",
+         y="cantidad",
+         text="cantidad",
+         title="❌ Retirados"
+        )
+        # Actualizar diseño del gráfico
+        fig_retirados_mun.update_traces(textposition="outside", marker_color="#E74C3C")
+        # Personalizar línea
+        fig_retirados_mun.update_layout(height=500, width=280, showlegend=False, xaxis_title="Municipio",yaxis_title="Cantidad")
+
+       # ============================
+       # Suspendidos por Municipio
+       # ============================
+        resumen_suspendidos_mun = (
+             df_estado_unico[df_estado_unico['id_estatus_servicio_cliente']=="suspendido"]
+            .groupby('id_municipio_cliente').size().reset_index(name="cantidad")
+        )
+
+         # Gráfico de barras para suspendidos por municipio
+        fig_suspendidos_mun = px.bar(
+         resumen_suspendidos_mun,
+         x="id_municipio_cliente",
+         y="cantidad",
+         text="cantidad",
+         title="⚠️ Suspendidos"
+        )
+
+        # Actualizar diseño del gráfico
+        fig_suspendidos_mun.update_traces(textposition="outside", marker_color="#F1C40F")
+        fig_suspendidos_mun.update_layout(height=500, width=280, showlegend=False, xaxis_title="Municipio", yaxis_title="Cantidad")
+
+        #===================================
+        #Graficos de porcentajes de estados
+        #===================================
+
+        # Total de clientes
+        total_clientes = len(df_estado_unico)
+        ultimo_mes = pd.to_datetime("today").month # columna de dias
+        df_nuevos = df_estado_unico[df_estado_unico['f_instalacion_cliente'].dt.month == ultimo_mes] # sacar colintes nuevos por fecha
+        nuevos = len(df_nuevos) #contar clientes nuevos
+
+        # Porcentajes por estado
+        porcentaje_activos = (df_estado_unico['id_estatus_servicio_cliente'] == "activo").sum() / total_clientes * 100 # porcentaje activos
+        porcentaje_retirados = (df_estado_unico['id_estatus_servicio_cliente'] == "retirado").sum() / total_clientes * 100
+        porcentaje_suspendidos = (df_estado_unico['id_estatus_servicio_cliente'] == "suspendido").sum() / total_clientes * 100
+        porcentaje_nuevos = nuevos / total_clientes * 100 # Porcentaje de nuevos
+
+        # Gráfico de gauge para activos
+        fig_gauge_activos = go.Figure(go.Indicator( # figura de indicador
+            mode="gauge+number", # indicador de gauge y número
+            value=porcentaje_activos, # valor del porcentaje
+            number={'suffix': "%"},  #  símbolo %
+            title={'text': "✅ Activos (%)"}, # título del gráfico
+            gauge={'axis': {'range': [0, 100]}, # rango del eje
+                     'bar': {'color': "#2ECC71"}})) # color de la barra
+        # Actualizar diseño del gráfico
+        fig_gauge_activos.update_layout(height=100, width=200, paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10))
+
+        # Gráfico de gauge para retirados
+        fig_gauge_retirados = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=porcentaje_retirados,
+            number={'suffix': "%"},  #  símbolo %
+            title={'text': "❌ Retirados (%)"},
+            gauge={'axis': {'range': [0, 100]},
+                     'bar': {'color': "#E74C3C"}}))
+        fig_gauge_retirados.update_layout(height=100, width=200, paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10))  
+
+        # Gráfico de gauge para suspendidos
+        fig_gauge_suspendidos = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=porcentaje_suspendidos,
+            number={'suffix': "%"},  #  símbolo %
+            title={'text': "⚠️ Suspendidos (%)"},
+            gauge={'axis': {'range': [0, 100]},
+                     'bar': {'color': "#F1C40F"}}))
+        fig_gauge_suspendidos.update_layout(height=100, width=200, paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10))    
+
+        # Gráfico de gauge para Nuevos
+        fig_gauge_nuevos = go.Figure(go.Indicator(
+           mode="gauge+number",
+           value=porcentaje_nuevos,
+           number={'suffix': "%"},  #  símbolo %
+           title={'text': "🆕 Nuevos (%)"},
+           gauge={'axis': {'range': [0, 100]}, 'bar': {'color': "#3498DB"}}  # azul
+         ))
+        fig_gauge_nuevos.update_layout(height=100, width=200, paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=10, b=10))
+
+        # ============================
+        # Layout: KPIs izquierda, gráficos derecha
+        # ============================
+
+        col_kpi, col_graficos = st.columns([1, 6])  # proporción 1:6
+
+        # KPIs apilados en columna izquierda
+        with col_kpi:
+          st.markdown("### 👥 KPIs")
+          st.metric("📌 Total Clientes", total_clientes)
+          st.metric("✅ Activos", activos)
+          st.metric("⚠️ Suspendidos", suspendidos)
+          st.metric("❌ Retirados", retirados)
+          st.metric("🆕 Nuevos", nuevos)
+
+         # Gráficos en columna derecha
+        with col_graficos:
+          st.markdown("### 📈 Visualizaciones")
+
+         #===========================
+         # Primera fila de gráficos
+         # ============================
+
+          g1, g2, g3, g4= st.columns([1,1,1,1])  
+          with g1:
+           st.plotly_chart(fig_gauge_activos, use_container_width=True)
+          with g2:
+           st.plotly_chart(fig_gauge_suspendidos, use_container_width=True)
+          with g3:
+           st.plotly_chart(fig_gauge_retirados, use_container_width=True)
+          with g4:
+           st.plotly_chart(fig_gauge_nuevos, use_container_width=True)
+
+         #==============================
+         # Mostrar los 4 gráficos en una sola fila
+         # ============================
+          col1, col2, col3, col4 = st.columns(4)
+          with col1:
+             st.plotly_chart(fig_activos, use_container_width=True)
+          with col2:
+             st.plotly_chart(fig_suspendidos, use_container_width=True)
+          with col3:
+             st.plotly_chart(fig_retirados, use_container_width=True)
+          with col4:
+             st.plotly_chart(fig_nuevos, use_container_width=True)
+
+        #=============================
+         # tercera fila de gráficos
+        # ============================
+          col5, col6, col7, col8 = st.columns([3,1,1,1])  # gráfico más ancho
+          with col5:
+                st.plotly_chart(fig_planes_estado, use_container_width=True)
+          with col6:
+                st.plotly_chart(fig_activos_mun, use_container_width=True)
+          with col7:
+                st.plotly_chart(fig_retirados_mun, use_container_width=True)
+          with col8:
+                st.plotly_chart(fig_suspendidos_mun, use_container_width=True)   
 
 #====================================
 # 💰 Página: Dashboard de Facturación
@@ -662,10 +819,4 @@ elif pagina == "Dashboard Facturacion":
          st.plotly_chart(fig_tipo, use_container_width=True)
         with col4:
          st.plotly_chart(fig_municipio, use_container_width=True)
-
-
-# In[12]:
-
-
-df.head()
 
