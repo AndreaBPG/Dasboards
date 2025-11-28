@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[14]:
+# In[1]:
 
 
 import streamlit as st
@@ -83,7 +83,7 @@ df['dia'].unique()
 
 # ##Cargando css exterior personalizado
 
-# In[ ]:
+# In[8]:
 
 
 #===========================
@@ -177,7 +177,7 @@ if pagina == "Dashboard de Clientes":
         font-weight: 600;
         margin-bottom: 20px;
     '>
-    📊 Dashboard de Clientes
+    📊 Dashboard Clientes
     </h1>
     """, unsafe_allow_html=True)
 
@@ -260,7 +260,7 @@ if pagina == "Dashboard de Clientes":
             subtitulo += f" | Año: {fecha}"
         if mes != "Nada":
             subtitulo += f" | Mes: {mes}"
-        st.subheader(subtitulo)
+
 
 # ======================================
 # 📊 Gráficos de líneas por estado y nuevo
@@ -547,9 +547,15 @@ if pagina == "Dashboard de Clientes":
           st.metric("❌ Retirados", retirados)
           st.metric("🆕 Nuevos", nuevos)
 
+
          # Gráficos en columna derecha
         with col_graficos:
-          st.markdown("### 📈 Visualizaciones")
+
+          sub1, sub2 = st.columns([2,4])  # dos subcolumnas
+          with sub1:
+              st.markdown("### 📈 Visualizaciones")
+          with sub2:
+              st.markdown(f"#### {subtitulo}")  # subtítulo dinámico de filtros aplicados
 
          #===========================
          # Primera fila de gráficos
@@ -634,189 +640,185 @@ elif pagina == "Dashboard Facturacion":
     </h1>
     """, unsafe_allow_html=True)
 
-     # Subtítulo dinámico según filtros
-    st.markdown(f"Visualizando **{tipo_dato}** para el período seleccionado.")
-
-
     # ---------------------------
     # 📂 Preparación del DataFrame
     # ---------------------------
+    df_facturacion = df.copy()   # aquí usas tu df real
 
-    #  Copiamos el DataFrame original (df) para trabajar solo con facturación
-    df_facturacion = df.copy()
-
-    #  Aseguramos que f_emision_factura sea datetime (si no lo está ya)
-    #    Esto es importante para poder usar .dt.year, .dt.month y agrupar por periodos.
-    if not pd.api.types.is_datetime64_any_dtype(df_facturacion["f_emision_factura"]):
-        df_facturacion["f_emision_factura"] = pd.to_datetime(df_facturacion["f_emision_factura"], errors="coerce")
-
-    #  Filtro por municipio
-    if municipio != "Todo":
-       df_facturacion = df_facturacion[df_facturacion["id_municipio_cliente"] == municipio]
-
-    #  Filtro por año si se selecciona uno específico
+    # Filtros básicos
     if año_factura != "Todo":
-        df_facturacion = df_facturacion[df_facturacion['f_emision_factura'].dt.year == int(año_factura)]
+        df_facturacion = df_facturacion[df_facturacion["f_emision_factura"].dt.year == int(año_factura)]
 
-    # Filtro por mes si se selecciona uno específico
+        # Filtro por municipio
+    if municipio != "Todo":
+        df_facturacion = df_facturacion[df_facturacion["id_municipio_cliente"] == municipio]
+
+    # Filtro por mes
     if mes_factura != "Todo":
-        MESES = {
-            "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4,
-            "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8,
-            "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
-        }
-        df_facturacion = df_facturacion[df_facturacion['f_emision_factura'].dt.month == MESES[mes_factura]]
+        MESES = {"Enero":"January","Febrero":"February","Marzo":"March","Abril":"April",
+                 "Mayo":"May","Junio":"June","Julio":"July","Agosto":"August",
+                 "Septiembre":"September","Octubre":"October","Noviembre":"November","Diciembre":"December"}
+        df_facturacion = df_facturacion[df_facturacion["f_emision_factura"].dt.month_name() == MESES[mes_factura]]
 
+    #==============================
+    #graficos 
+    #==============================
 
-    # ---------------------------
-    # 📊 KPIs de Facturación
-    # ---------------------------
-    # Total de transacciones registradas
-    total_transacciones = df_facturacion.shape[0]
+    # Preparar datos mensuales
+    MES_MAP = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+    7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+     }
 
-    # Total de facturas emitidas (facturas con fecha válida)
-    total_facturas = df_facturacion['f_emision_factura'].notna().sum()
+    # Extraer mes numérico y nombre del mes
+    df_facturacion['mes_num'] = df_facturacion['f_emision_factura'].dt.month
 
-    # Total facturado (suma de todas las facturas)
-    total_facturado = df_facturacion['total_factura'].sum()
+    #este codigo mapea el numero del mes al nombre del mes es decir 1->Enero, 2->Febrero etc
+    df_facturacion['mes_nombre'] = df_facturacion['mes_num'].map(MES_MAP) # mapa de número
 
-    # Ingresos (monto positivo en transacciones)
-    ingresos = df_facturacion[df_facturacion['monto_transaccion'] > 0]['monto_transaccion'].sum()
-
-    # Comisiones (suma de comisiones de transacciones)
-    comisiones = df_facturacion['comision_transaccion'].sum()
-
-    # Mostrar KPIs en columnas
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("💰 Transacciones", total_transacciones)
-    col2.metric("🧾 Facturas Emitidas", total_facturas)
-    col3.metric("📊 Total Facturado", f"${total_facturado:,.2f}")
-    col4.metric("📈 Ingresos", f"${ingresos:,.2f}")
-    col5.metric("💸 Comisiones", f"${comisiones:,.2f}")
-
-    # ---------------------------
-    # 📈 Gráficos generales de Facturación
-    # ---------------------------
-
-    # Primero creamos una columna "periodo" que convierte la fecha de emisión en un formato de mes/año.
-    # Esto nos permite agrupar las transacciones por cada mes y ver la evolución temporal.
-    df_facturacion['periodo'] = df_facturacion['f_emision_factura'].dt.to_period("M").dt.to_timestamp()
-
-    # ============================================================
-    # 📈 Gráfico 1: Ingresos por Mes
-    # ============================================================
-
-
-    # Filtramos solo las transacciones positivas (monto_transaccion > 0),
-    #  porque representan dinero que entra a la empresa.
-    df_ingresos = df_facturacion[df_facturacion['monto_transaccion'] > 0]
-
-    # Agrupamos por "periodo" y sumamos los ingresos de cada mes.
-    resumen_ingresos = df_ingresos.groupby('periodo')['monto_transaccion'].sum().reset_index()
-
-    # Creamos un gráfico de línea para mostrar cómo evolucionan los ingresos mes a mes.
-    fig_ingresos = px.line(
-     resumen_ingresos,
-     x='periodo',                # eje X = meses
-     y='monto_transaccion',      # eje Y = suma de ingresos
-     markers=True,               # mostramos puntos en la línea
-     title="📈 Ingresos por Mes" # título del gráfico
+    # Convertir a categoría ordenada para que Plotly respete el orden
+    df_facturacion['mes_nombre'] = pd.Categorical( # convertir a categoría
+    df_facturacion['mes_nombre'], # columna de mes
+    categories=list(MES_MAP.values()), # categorías en orden
+    ordered=True # ordenado
     )
 
-    # Personalizamos el estilo de la línea (color verde, grosor 2).
-    fig_ingresos.update_traces(line=dict(color='#2ECC71', width=2))
+    # Resumir datos por mes
+    df_line = df_facturacion.groupby('mes_nombre').agg({ # agrupar por mes
+    'total_factura':'sum', # suma total facturas
+    'neto_transaccion':'sum' # suma neto transacciones
+    }).reset_index() # resetear índice para gráfico
 
-    # Etiquetas de los ejes
-    fig_ingresos.update_layout(yaxis_title="Ingresos ($)", xaxis_title="Periodo")
+    # Calcular monto a cobrar
+    df_line['monto_a_cobrar'] = df_line['total_factura'] - df_line['neto_transaccion']
 
+    #=======================
+    # 💰 Facturado
+    #======================
 
-    # ============================================================
-    # ⚖️ Gráfico 2: Balance Ingresos vs Egresos
-    # ============================================================
+    fig_facturado = px.line(
+        df_line,
+        x="mes_nombre",
+        y="total_factura",
+        labels={"total_factura":"Monto Facturado","mes":"Mes"},
+        title="💰 Monto Facturado",
+        markers=True  # activa los puntos en la curva
+    )
+    fig_facturado.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
-    # Aquí no filtramos: usamos todos los montos de transacciones.
-    #    Al sumar ingresos (positivos) y egresos (negativos) obtenemos el balance neto de cada mes.
-    resumen_balance = df_facturacion.groupby('periodo')['monto_transaccion'].sum().reset_index()
+    #==============
+    # 💵 Cobrado
+    #==============
 
-    # Creamos un gráfico de barras para mostrar el balance mensual.
-    fig_balance = px.bar(
-     resumen_balance,
-     x='periodo',                # eje X = meses
-     y='monto_transaccion',      # eje Y = balance neto
-     title="⚖️ Balance Ingresos vs Egresos por Mes",
-     color='monto_transaccion',  # coloreamos según el valor (positivo/negativo)
-     color_continuous_scale=['#E74C3C','#2ECC71']  # rojo = pérdida, verde = ganancia
+    fig_cobrado = px.line(
+        df_line,
+        x="mes_nombre",
+        y="neto_transaccion",
+        labels={"neto_transaccion":"Monto Cobrado","mes":"Mes"},
+        title="💵 Monto Cobrado",
+        markers=True  # activa los puntos en la curva
+    )
+    fig_cobrado.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+
+    #================
+    # 📌 a Cobrar
+    #================
+
+    # 📌 Monto a Cobrar
+    fig_a_cobrar = px.line(
+        df_line, x="mes_nombre", 
+        y="monto_a_cobrar",
+        labels={"monto_a_cobrar":"Monto a Cobrar","mes_nombre":"Mes"},
+        title="📌 Monto a Cobrar",
+        markers=True
+    )
+    fig_a_cobrar.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
+
+    # ---------------------------
+    # 🥧 Gráfico circular: Pagos en Divisas vs Bs
+    # ---------------------------   
+
+    # Diccionario de mapeo directo
+    MAPEO_PAGOS = {
+    "transferencia_divisas": "Divisas",
+    "efectivo_divisas": "Divisas",
+    "transferenacia_bolivares": "Bolívares",
+    "efectivo_bolivares": "Bolívares",
+    "pago_movil": "Bolívares",
+    "nota_credito": "Otros"
+    } 
+
+    # Crear columna agrupada con replace
+    df_facturacion['grupo_pago'] = df_facturacion['id_pasarela_pago'].replace(MAPEO_PAGOS)
+
+    # Agrupar solo Divisas y Bs
+    df_pagos_tipo = (
+    df_facturacion[df_facturacion['grupo_pago'].isin(["Divisas","Bolívares"])]
+    .groupby('grupo_pago')
+    .size()
+    .reset_index(name='cantidad')
     )
 
-    # Etiquetas de los ejes
-    fig_balance.update_layout(yaxis_title="Balance ($)", xaxis_title="Periodo")
-
-   # ============================================================
-   # 📊 Gráfico 3: Ingresos por Tipo de Factura
-   # ============================================================
-    resumen_tipo = df_facturacion.groupby('id_tipo_factura')['total_factura'].sum().reset_index()
-
-    fig_tipo = px.bar(
-     resumen_tipo,
-     x='id_tipo_factura',
-     y='total_factura',
-     title="📊 Ingresos por Tipo de Factura",
-     color='id_tipo_factura',
+    # Crear gráfico circular
+    fig_pagos = px.pie(
+     df_pagos_tipo,
+     names="grupo_pago",
+     values="cantidad",
+     title="Distribución de Pagos: Divisas vs Bs",
+     color="grupo_pago",
      color_discrete_map={
-        'Servicio': '#3498DB',
-        'Libre': '#9B59B6',
-        'Especial': '#F1C40F'
-      }
+        "Divisas":"#F39C12",   # Naranja
+        "Bolívares":"#3498DB"  # Azul
+     }
     )
-    fig_tipo.update_layout(yaxis_title="Total Facturado ($)", xaxis_title="Tipo de Factura")
+    # Mostrar % en el gráfico
+    fig_pagos.update_traces(textinfo="percent+label")
+    fig_pagos.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
-  # ============================================================
-  # 🏙️ Gráfico 4: Ingresos por Municipio
-  # ============================================================
-
-   # Agrupamos por id_municipio_cliente y sumamos ingresos
-    resumen_municipio = df_facturacion.groupby('id_municipio_cliente')['monto_transaccion'].sum().reset_index()  
-
-    fig_municipio = px.line(
-    resumen_municipio,
-    x='id_municipio_cliente',      # eje X = municipios
-    y='monto_transaccion',         # eje Y = suma de ingresos
-    markers=True,                  # puntos en la línea
-    title="🏙️ Ingresos por Municipio"
-   )
-
-    fig_municipio.update_traces(line=dict(color='#9B59B6', width=2))
-    fig_municipio.update_layout(yaxis_title="Ingresos ($)", xaxis_title="Municipio")
-
-# ============================================================
-# 📌 Layout condicional
-# ============================================================
-    if año_factura == "Todo" and mes_factura == "Todo":
-
-    # Mostrar en columnas (2x2)
-     col1, col2 = st.columns(2)
-     with col1:
-        st.plotly_chart(fig_ingresos, use_container_width=True)
-     with col2:
-        st.plotly_chart(fig_balance, use_container_width=True)
-
-     col3, col4 = st.columns(2)
-     with col3:
-        st.plotly_chart(fig_tipo, use_container_width=True)
-     with col4:
-         st.plotly_chart(fig_municipio, use_container_width=True)
-
+    # ---------------------------
+    # 📊 KPIs generales
+    # ---------------------------
+    if df_facturacion.empty:
+        st.warning("⚠️ No hay datos de facturación para los filtros seleccionados.")
     else:
-    # Mostrar
-        col1, col2 = st.columns(2)
-        with col1:
-         st.plotly_chart(fig_ingresos, use_container_width=True)
-        with col2:
-         st.plotly_chart(fig_balance, use_container_width=True)
+     # Fecha actual para cálculos de vencimiento
+     hoy = pd.to_datetime("today")
 
-        col3, col4 = st.columns(2)
+     facturas_emitidas = len(df_facturacion) # facturas emitidas
+     facturas_cobradas = len(df_facturacion[df_facturacion['f_transaccion'].notna()])  # facturas cobradas con fecha de transacción registrada
+
+    # Facturas vencidas: vencimiento < hoy y con emisión registrada
+    #este codigo cuenta las facturas vencidas y hace un filtro para evitar errores con nulos
+     facturas_vencidas = len(df_facturacion[
+        (df_facturacion['f_emision_factura'].notna()) & # emisión registrada para evitar errores y nulos
+        (df_facturacion['f_vencimiento_factura'].notna()) & # vencimiento registrado para evitar errores y nulos
+        (df_facturacion['f_vencimiento_factura'] < hoy) # vencidas de hoy y anteriores para saber las vencidas
+     ])
+
+     # Facturas anuladas: total factura = 0
+     facturas_anuladas = len(df_facturacion[df_facturacion['total_factura'] == 0])
+     facturado_total  = df_facturacion['total_factura'].sum()  # total facturado
+
+     col_kpi, col_graf = st.columns([1,6])
+
+     with col_kpi:
+        st.markdown("### 📊 KPIs")
+        st.metric("📄 Facturas Emitidas", facturas_emitidas)
+        st.metric("⏰ Facturas Vencidas", facturas_vencidas)
+        st.metric("✅ Facturas Cobradas", facturas_cobradas)
+        st.metric("❌ Facturas Anuladas", facturas_anuladas)
+        st.metric("💰 Facturado", f"${facturado_total:,.2f}")
+
+     with col_graf:
+        st.markdown("### 📈 Evolución Mensual de Montos")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+         st.plotly_chart(fig_facturado, use_container_width=True) 
+        with col2:
+         st.plotly_chart(fig_cobrado, use_container_width=True)
         with col3:
-         st.plotly_chart(fig_tipo, use_container_width=True)
+         st.plotly_chart(fig_a_cobrar, use_container_width=True)
         with col4:
-         st.plotly_chart(fig_municipio, use_container_width=True)
+         st.plotly_chart(fig_pagos, use_container_width=True)
 
