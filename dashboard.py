@@ -83,7 +83,7 @@ df['dia'].unique()
 
 # ##Cargando css exterior personalizado
 
-# In[8]:
+# In[ ]:
 
 
 #===========================
@@ -99,7 +99,7 @@ def cargar_css(ruta="style.css"):
 cargar_css("style.css")
 
 
-# In[9]:
+# In[ ]:
 
 
 #===========================================
@@ -111,7 +111,7 @@ st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # ##Menu
 
-# In[10]:
+# In[ ]:
 
 
 #===============================
@@ -609,12 +609,6 @@ elif pagina == "Dashboard Facturacion":
      # Selección del tipo de dato a visualizar (Ingresos, Egresos, Gastos)
     tipo_dato = st.sidebar.selectbox("Tipo de facturacion:", ["ingresos"])
 
-    # Selectbox de municipio
-    municipio = st.sidebar.selectbox(
-    "Selecciona el municipio",
-    ["Todo", "bolivar","urbaneja", "sotillo"]
-    )
-
     # Selección del año de facturación
     año_factura = st.sidebar.selectbox("Año:", ["Todo", "2019","2020","2021","2022", "2023", "2024","2025"])
 
@@ -649,16 +643,39 @@ elif pagina == "Dashboard Facturacion":
     if año_factura != "Todo":
         df_facturacion = df_facturacion[df_facturacion["f_emision_factura"].dt.year == int(año_factura)]
 
-        # Filtro por municipio
-    if municipio != "Todo":
-        df_facturacion = df_facturacion[df_facturacion["id_municipio_cliente"] == municipio]
-
     # Filtro por mes
     if mes_factura != "Todo":
         MESES = {"Enero":"January","Febrero":"February","Marzo":"March","Abril":"April",
                  "Mayo":"May","Junio":"June","Julio":"July","Agosto":"August",
                  "Septiembre":"September","Octubre":"October","Noviembre":"November","Diciembre":"December"}
         df_facturacion = df_facturacion[df_facturacion["f_emision_factura"].dt.month_name() == MESES[mes_factura]]
+
+    # ================================
+    # Subtítulo dinámico con filtros
+    # ================================
+    subtitulo2 = "📍 Filtros aplicados:" 
+    if tipo_dato != "ingresos": 
+        subtitulo2 = f"📍 Tipo de dato: {tipo_dato}"   
+    if año_factura != "Todo":
+        subtitulo2 += f" | Año: {año_factura}"
+    if mes_factura != "Todo":
+        subtitulo2 += f" | Mes: {mes_factura}"
+
+    #==============================
+    # 🧮 Preparar datos para gráficos
+    #=============================
+
+    # Reemplazar strings vacíos o solo espacios por NaN
+    df_facturacion = df_facturacion.replace(r'^\s*$', np.nan, regex=True)
+
+    # Eliminar filas con NaN en columnas clave
+    df_facturacion = df_facturacion.dropna(subset=['id_plan_internet_cliente','total_factura','neto_transaccion'])
+
+    # Quitar filas donde el plan esté vacío
+    df_facturacion = df_facturacion[df_facturacion['id_plan_internet_cliente'].str.strip() != ""]
+
+    # Aplicar strip() a todas las columnas de tipo string
+    df_facturacion = df_facturacion.apply(lambda col: col.str.strip() if col.dtype == "object" else col)
 
     #==============================
     #graficos 
@@ -685,8 +702,8 @@ elif pagina == "Dashboard Facturacion":
 
     # Resumir datos por mes
     df_line = df_facturacion.groupby('mes_nombre').agg({ # agrupar por mes
-    'total_factura':'sum', # suma total facturas
-    'neto_transaccion':'sum' # suma neto transacciones
+    'total_factura':'sum', # suma total facturas facturadas
+    'neto_transaccion':'sum' # suma neto transacciones cobradas
     }).reset_index() # resetear índice para gráfico
 
     # Calcular monto a cobrar
@@ -704,6 +721,8 @@ elif pagina == "Dashboard Facturacion":
         title="💰 Monto Facturado",
         markers=True  # activa los puntos en la curva
     )
+    # Personalizar hover
+    fig_facturado.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}") # formato moneda para hover
     fig_facturado.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
     #==============
@@ -718,6 +737,7 @@ elif pagina == "Dashboard Facturacion":
         title="💵 Monto Cobrado",
         markers=True  # activa los puntos en la curva
     )
+    fig_cobrado.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}")
     fig_cobrado.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
     #================
@@ -732,6 +752,7 @@ elif pagina == "Dashboard Facturacion":
         title="📌 Monto a Cobrar",
         markers=True
     )
+    fig_a_cobrar.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}")
     fig_a_cobrar.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
     # ---------------------------
@@ -753,10 +774,11 @@ elif pagina == "Dashboard Facturacion":
 
     # Agrupar solo Divisas y Bs
     df_pagos_tipo = (
+        #este codigo agrupa los pagos en divisas y bolivares el .isin es para filtrar solo esos dos grupos
     df_facturacion[df_facturacion['grupo_pago'].isin(["Divisas","Bolívares"])]
-    .groupby('grupo_pago')
-    .size()
-    .reset_index(name='cantidad')
+    .groupby('grupo_pago') # agrupar por tipo de pago
+    .size() # contar cantidad
+    .reset_index(name='cantidad') # resetear índice
     )
 
     # Crear gráfico circular
@@ -775,9 +797,96 @@ elif pagina == "Dashboard Facturacion":
     fig_pagos.update_traces(textinfo="percent+label")
     fig_pagos.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20))
 
+    #==============================================
+    # 📊 Graficos Facturación y Cobranzas por Plan
+    #==============================================
+
+    # Agrupar por plan y sumar facturación/cobranzas
+    resumen_planes = (
+     df_facturacion.groupby('id_plan_internet_cliente')
+     .agg({
+        'total_factura':'sum',       # Facturación Activa ($)
+        'neto_transaccion':'sum'     # Cobranzas Activas ($)
+     })
+     .reset_index()
+    )
+
+    # Reestructurar para gráfico de barras
+    resumen_planes_melt = resumen_planes.melt(
+     id_vars='id_plan_internet_cliente', # columna de planes
+     value_vars=['total_factura','neto_transaccion'], # columnas a derretir
+     var_name='tipo', # nombre de la nueva columna para tipos
+     value_name='monto_usd' # nombre de la nueva columna para montos
+    )
+
+    # Renombrar etiquetas
+    resumen_planes_melt['tipo'] = resumen_planes_melt['tipo'].replace({
+     'total_factura':'Facturación Activa ($)', # etiqueta legible
+     'neto_transaccion':'Cobranzas Activas ($)' # etiqueta legible
+    })
+
+    # Crear gráfico de barras agrupadas (side-by-side)
+    fig_planes_factura = px.bar(
+     resumen_planes_melt,
+     x="monto_usd", # eje x con montos
+     y="id_plan_internet_cliente", # eje y con planes
+     color="tipo", # color por tipo
+     text="monto_usd", # mostrar monto en barra
+     barmode="group",  # barras lado a lado
+     title="📊 Facturación y Cobranzas Activas por Plan (USD)",
+     labels={ # etiquetas legibles
+        "id_plan_internet_cliente":"Plan de Internet",
+        "monto_usd":"Monto ($)",
+        "tipo":"Tipo"
+     }
+    )
+
+    # Ajustes visuales
+    fig_planes_factura.update_traces( # ajustes de trazas
+     texttemplate="$%{text:.2f}",  # formato moneda
+     textposition="outside", # mostrar fuera de la barra
+     hovertemplate="<b>Plan:</b> %{y}<br><b>Tipo:</b> %{fullData.name}<br>Monto: $%{x:,.2f}"# formato hover
+   )
+    # Diseño del gráfico
+    fig_planes_factura.update_layout(
+     height=500,
+     width=900,
+     showlegend=True
+    ) 
+
+    #=============================  
+    # 🥧 Gráfico circular: Ingresos por Método de Pago
+    #=============================
+
+    # Agrupar por método de pago y sumar el neto transaccionado ($)
+    df_metodos_pago = (
+     df_facturacion.groupby('id_pasarela_pago')['neto_transaccion']
+      .sum()
+     .reset_index()
+    )
+
+    # Crear gráfico circular
+    fig_metodos_pago = px.pie(
+     df_metodos_pago,
+     names="id_pasarela_pago",          # Método de pago
+     values="neto_transaccion",         # Dinero total por método
+     title="💳 Distribución de Ingresos por Método de Pago",
+     color="id_pasarela_pago"
+     )
+
+    # Mostrar % y monto al pasar el mouse
+    fig_metodos_pago.update_traces(
+     textinfo="percent+label",
+     hovertemplate="<b>Método:</b> %{label}<br>Ingresos: $%{value:,.2f}<br>%{percent}"
+    )
+
+     # Ajustar tamaño compacto
+    fig_metodos_pago.update_layout(height=500, width=900)
+
     # ---------------------------
     # 📊 KPIs generales
     # ---------------------------
+
     if df_facturacion.empty:
         st.warning("⚠️ No hay datos de facturación para los filtros seleccionados.")
     else:
@@ -810,7 +919,12 @@ elif pagina == "Dashboard Facturacion":
         st.metric("💰 Facturado", f"${facturado_total:,.2f}")
 
      with col_graf:
-        st.markdown("### 📈 Evolución Mensual de Montos")
+
+        titu1, titu2 = st.columns([2,4])  # dos subcolumnas
+        with titu1:
+          st.markdown("### 📈 Evolución Anual de Montos")
+        with titu2:
+          st.markdown(f"#### {subtitulo2}")  # subtítulo dinámico de filtros aplicados
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -821,4 +935,10 @@ elif pagina == "Dashboard Facturacion":
          st.plotly_chart(fig_a_cobrar, use_container_width=True)
         with col4:
          st.plotly_chart(fig_pagos, use_container_width=True)
+
+        col5, col6 = st.columns([3,3])  # gráfico más ancho
+        with col5:
+         st.plotly_chart(fig_planes_factura, use_container_width=True)
+        with col6:
+            st.plotly_chart(fig_metodos_pago, use_container_width=True)
 
