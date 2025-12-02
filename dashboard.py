@@ -4,12 +4,13 @@
 # In[1]:
 
 
-import streamlit as st
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
+import streamlit as st # para la creación del dashboard
+import numpy as np # para cálculos numéricos
+import pandas as pd # para manipulación de datos
+import plotly.express as px # para gráficos interactivos
+import matplotlib.pyplot as plt # para gráficos estáticos
+import plotly.graph_objects as go # para gráficos avanzados
+from datetime import datetime # para manejo de fechas
 
 
 # ##Cargando bases de datos
@@ -83,7 +84,7 @@ df['dia'].unique()
 
 # ##Cargando css exterior personalizado
 
-# In[ ]:
+# In[9]:
 
 
 #===========================
@@ -99,7 +100,7 @@ def cargar_css(ruta="style.css"):
 cargar_css("style.css")
 
 
-# In[ ]:
+# In[10]:
 
 
 #===========================================
@@ -111,7 +112,7 @@ st.set_page_config(page_title="Soluciones Wireless", layout="wide")
 
 # ##Menu
 
-# In[ ]:
+# In[11]:
 
 
 #===============================
@@ -151,6 +152,12 @@ st.markdown("""
 
 if pagina == "Dashboard de Clientes":
 
+     # Extraer años únicos desde la base
+    anios_disponibles = sorted(df['año'].unique())
+
+    # Año actual del sistema
+    anio_actual = datetime.now().year
+
     # 🎛️ Filtros especificos
     st.sidebar.subheader("Filtros de Cliente")
 
@@ -158,7 +165,8 @@ if pagina == "Dashboard de Clientes":
 
     ubicacion = st.sidebar.selectbox("Ubicación/Municipo:", ["Nada", "bolivar", "urbaneja", "sotillo"])
 
-    fecha = st.sidebar.selectbox("Año:", ["Nada", "2019", "2020", "2021", "2022", "2023", "2024","2025"])
+    fecha = st.sidebar.selectbox("Año:",options=anios_disponibles,
+    index=(anios_disponibles.index(anio_actual) if anio_actual in anios_disponibles else 0))
 
     mes = st.sidebar.selectbox("Mes:", [
         "Nada", "Enero", "Febrero", "Marzo", "Abril", "Mayo",
@@ -187,17 +195,29 @@ if pagina == "Dashboard de Clientes":
 
     df_filtrado = df.copy()
 
+    # Filtrado según selección
+    df_filtrado = df[df['año'] == fecha]
+
+    # Ordenar por fecha de transacción para tomar el último estado por cliente
+    df_filtrado = df_filtrado.sort_values(by='f_transaccion', kind='mergesort')
+
+    #Eliminar duplicados manteniendo solo el último registro por cliente
+    df_estado_unico = df_filtrado[~df_filtrado.index.duplicated(keep='last')]
+
+    # 👉 Filtrar por fecha válida
+    df_nuevos = df_estado_unico[df_estado_unico['f_instalacion_cliente'].notna()].copy()
+
+    # 👉 Contar clientes nuevos
+    nuevos = df_nuevos.index.nunique()    
+
     #filtro por estado
     if cliente != "Todo":
         df_filtrado = df_filtrado[df_filtrado["id_estatus_servicio_cliente"] == cliente]
 
     #filtro por municipio
     if ubicacion != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["id_municipio_cliente"] == ubicacion]
+        df_filtrado = df_filtrado[df_filtrado["id_municipio_cliente"] == ubicacion]    
 
-    #filtro por año
-    if fecha != "Nada":
-        df_filtrado = df_filtrado[df_filtrado["f_instalacion_cliente"].dt.year == int(fecha)]
 
     #filtro por mes
     if mes != "Nada":
@@ -219,34 +239,12 @@ if pagina == "Dashboard de Clientes":
         # 📈 KPIs por cliente único (último estado)
         # =========================================
 
-        # Ordenar por fecha de transacción para tomar el último estado por cliente
-        df_filtrado = df_filtrado.sort_values(by='f_transaccion', kind='mergesort')
-
-        #Eliminar duplicados manteniendo solo el último registro por cliente
-        df_estado_unico = df_filtrado[~df_filtrado.index.duplicated(keep='last')]
-
         # Calcular KPIs
         total_clientes = df_estado_unico.index.nunique() #clientes totales
         activos = (df_estado_unico["id_estatus_servicio_cliente"] == "activo").sum() #clientes activos
         suspendidos = (df_estado_unico["id_estatus_servicio_cliente"] == "suspendido").sum() #clientes suspendidos
         retirados = (df_estado_unico["id_estatus_servicio_cliente"] == "retirado").sum() #clientes retirados
 
-# =========================================
-# 🆕 Calcular clientes nuevos por fecha
-# =========================================
-
-       # 👉 Filtrar por fecha válida
-        df_nuevos = df_estado_unico[df_estado_unico['f_instalacion_cliente'].notna()].copy()
-
-       # 👉 Aplicar filtros de año y mes si están activos
-        if fecha != "Nada":
-         df_nuevos = df_nuevos[df_nuevos['f_instalacion_cliente'].dt.year == int(fecha)]
-
-        if mes != "Nada":
-         df_nuevos = df_nuevos[df_nuevos['f_instalacion_cliente'].dt.month_name() == MESES[mes]]
-
-        # 👉 Contar clientes nuevos
-        nuevos = df_nuevos.index.nunique()    
 
         # ================================
         # Subtítulo dinámico con filtros
@@ -602,6 +600,13 @@ if pagina == "Dashboard de Clientes":
 # ===================================
 
 elif pagina == "Dashboard Facturacion":
+    df_facturacion = df.copy()   # aquí usas tu df real
+
+    # Extraer años únicos desde la base de facturación
+    anios_facturacion = sorted(df_facturacion['año'].unique())
+
+    # Año actual del sistema
+    anio_actual = datetime.now().year
 
     # Filtros especificos de selectbox
     st.sidebar.subheader("Filtros de Facturacion")
@@ -610,7 +615,8 @@ elif pagina == "Dashboard Facturacion":
     tipo_dato = st.sidebar.selectbox("Tipo de facturacion:", ["ingresos"])
 
     # Selección del año de facturación
-    año_factura = st.sidebar.selectbox("Año:", ["Todo", "2019","2020","2021","2022", "2023", "2024","2025"])
+    anio_factura = st.sidebar.selectbox("Año:",   options=anios_facturacion,
+    index=(anios_facturacion.index(anio_actual) if anio_actual in anios_facturacion else 0))
 
      # Selección del mes de facturación
     mes_factura = st.sidebar.selectbox("Mes:", [
@@ -636,12 +642,10 @@ elif pagina == "Dashboard Facturacion":
 
     # ---------------------------
     # 📂 Preparación del DataFrame
-    # ---------------------------
-    df_facturacion = df.copy()   # aquí usas tu df real
+    # --------------------------
 
-    # Filtros básicos
-    if año_factura != "Todo":
-        df_facturacion = df_facturacion[df_facturacion["f_emision_factura"].dt.year == int(año_factura)]
+    # Filtrar el dataframe de facturación según el año seleccionado
+    df_facturacion_filtrado = df_facturacion[df_facturacion['año'] == anio_factura]
 
     # Filtro por mes
     if mes_factura != "Todo":
@@ -656,13 +660,13 @@ elif pagina == "Dashboard Facturacion":
     subtitulo2 = "📍 Filtros aplicados:" 
     if tipo_dato != "ingresos": 
         subtitulo2 = f"📍 Tipo de dato: {tipo_dato}"   
-    if año_factura != "Todo":
-        subtitulo2 += f" | Año: {año_factura}"
+    if anio_factura != "Todo":
+        subtitulo2 += f" | Año: {anio_factura}"
     if mes_factura != "Todo":
         subtitulo2 += f" | Mes: {mes_factura}"
 
     #==============================
-    # 🧮 Preparar datos para gráficos
+    # 🧮 Preparar datos para gráficos 
     #=============================
 
     # Reemplazar strings vacíos o solo espacios por NaN
