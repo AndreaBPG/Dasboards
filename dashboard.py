@@ -158,6 +158,9 @@ if pagina == "Dashboard de Clientes":
     # Año actual del sistema
     anio_actual = datetime.now().year
 
+    # Construir lista de opciones con "Todo"
+    opciones_anio = ["Todo"] + anios_disponibles
+
     # 🎛️ Filtros especificos
     st.sidebar.subheader("Filtros de Cliente")
 
@@ -165,8 +168,8 @@ if pagina == "Dashboard de Clientes":
 
     ubicacion = st.sidebar.selectbox("Ubicación/Municipo:", ["Nada", "bolivar", "urbaneja", "sotillo"])
 
-    fecha = st.sidebar.selectbox("Año:",options=anios_disponibles,
-    index=(anios_disponibles.index(anio_actual) if anio_actual in anios_disponibles else 0))
+    fecha = st.sidebar.selectbox("Año:",options=opciones_anio,
+    index=(opciones_anio.index(anio_actual) if anio_actual in anios_disponibles else 0))
 
     mes = st.sidebar.selectbox("Mes:", [
         "Nada", "Enero", "Febrero", "Marzo", "Abril", "Mayo",
@@ -196,7 +199,10 @@ if pagina == "Dashboard de Clientes":
     df_filtrado = df.copy()
 
     # Filtrado según selección
-    df_filtrado = df[df['año'] == fecha]
+    if fecha == "Todo":
+     df_filtrado = df.copy()   # muestra todos los años
+    else:
+     df_filtrado = df[df['año'] == fecha]
 
     # Ordenar por fecha de transacción para tomar el último estado por cliente
     df_filtrado = df_filtrado.sort_values(by='f_transaccion', kind='mergesort')
