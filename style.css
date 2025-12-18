@@ -9,7 +9,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap');
 
 body {
-    background-color: #113853;
+    background-color: #5ab8fb;
 }
 
 h1 {
@@ -19,12 +19,12 @@ h1 {
 }
 
 [data-testid="stSidebar"] {
-    background-color: #0019a5;
+    background-color: #7dc9ff;
 }
 
 /* Fondo y texto del selectbox desplegado */
 div[data-testid="stSelectbox"] {
-    background-color: #ffffff; /* Fondo del contenedor */
+    background-color: #eeeeee; /* Fondo del contenedor */
     border-radius: 8px;
     padding: 6px;
     border: 1px solid #2c44cf;
@@ -46,5 +46,5 @@ div[data-testid="stSelectbox"] .css-1uccc91-singleValue {
 
 /* Fondo del área principal (excluye el sidebar) */
 [data-testid="stAppViewContainer"] {
-    background-color: #0c004b; /* Cambia este color al que tú quieras */
+    background-color: #f7f7f7; /* Cambia este color al que tú quieras */
 }
