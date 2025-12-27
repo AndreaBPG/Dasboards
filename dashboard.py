@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[39]:
+# In[1]:
 
 
 import streamlit as st # para la creación del dashboard
@@ -14,17 +14,18 @@ import plotly.graph_objects as go # para gráficos avanzados
 
 # ##Cargando bases de datos
 
-# In[40]:
+# In[2]:
 
 
 path = "datos_sw.xlsx"#Cargando datos
 #leyendo hojas
 df= pd.read_excel(path)
+df_primeras = pd.read_excel("qry_primeras_instalaciones.xlsx")
 
 
 # ##Arreglos de la base de datos
 
-# In[41]:
+# In[3]:
 
 
 #===============================================================
@@ -42,7 +43,7 @@ df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
 df.head()
 
 
-# In[42]:
+# In[4]:
 
 
 df.set_index('codigo_cliente', inplace=True) #para colocar los indeces id_cliente como los indes de la tabla en panda
@@ -51,7 +52,7 @@ df.head()
 
 # ##extraer fechas para usarlos
 
-# In[43]:
+# In[5]:
 
 
 # Extraer componentes de la fecha columnas separadas con datos de las fechas instalacion
@@ -60,7 +61,7 @@ df['mes'] = df['f_instalacion_cliente'].dt.month #mes
 df['anio'] = df['f_instalacion_cliente'].dt.year #año
 
 
-# In[44]:
+# In[6]:
 
 
 df.head()
@@ -68,7 +69,7 @@ df.head()
 
 # #Validacoin de datos
 
-# In[45]:
+# In[7]:
 
 
 # Revisar valores nulos
@@ -76,14 +77,25 @@ df.isnull().sum()
 # Revisar valores únicos en columnas clave
 df['id_municipio_cliente'].unique()
 df['id_estatus_servicio_cliente'].unique()
-df['anio'].unique()
-df['mes'].unique()
-df['dia'].unique()
+
+
+# In[8]:
+
+
+# Asegurar que ambos tengan código_cliente como columna
+df = df.reset_index()
+df_primeras = df_primeras.reset_index()
+
+# Merge correcto
+df = df.merge(df_primeras, on="codigo_cliente", how="left")
+
+# Volver a poner el índice
+df = df.set_index("codigo_cliente")
 
 
 # ##Cargando css exterior personalizado
 
-# In[46]:
+# In[9]:
 
 
 #===========================
@@ -99,7 +111,7 @@ def cargar_css(ruta="style.css"):
 cargar_css("style.css")
 
 
-# In[47]:
+# In[10]:
 
 
 #===========================================
@@ -111,7 +123,7 @@ st.set_page_config(page_title="Soluciones Wireless", layout="wide", page_icon="i
 
 # ##Menu
 
-# In[48]:
+# In[11]:
 
 
 #===============================
@@ -162,6 +174,21 @@ if pagina == "Dashboard de Clientes":
     <h1 class="dashboard-title">Dashboard de Clientes</h1> 
     """, unsafe_allow_html=True) #nombre del dashboard
 
+
+    # ============================
+    # Preparar df_primeras UNA SOLA VEZ
+    # ============================
+
+    df['f_instalacion_cliente'] = pd.to_datetime(df['f_instalacion_cliente'], errors='coerce') 
+    df['f_transaccion'] = pd.to_datetime(df['f_transaccion'], errors='coerce') 
+
+    # Crear columnas de año y mes 
+    df['anio'] = df['f_instalacion_cliente'].dt.year
+    df['mes'] = df['f_instalacion_cliente'].dt.month 
+
+    MESES_ORDEN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio", "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+
+
 #================================
 #Filtros del Menu
 #================================
@@ -175,11 +202,27 @@ if pagina == "Dashboard de Clientes":
     # 🎛️ Filtros especificos
     st.sidebar.subheader("Filtros de Cliente")
 
+    #mapear para que los nombres esten mejor
+    mapa_estados={
+        "Activo":"activo",
+        "Supendido":"suspendido",
+        "Retirado":"retirado"
+    }
+
     # Filtro por estado del cliente
-    cliente = st.sidebar.selectbox("Clientes:", ["Todo", "activo", "suspendido", "retirado"])
+    cliente_visual = st.sidebar.selectbox("Clientes:",  ["Todo"] + list(mapa_estados.keys()))
+    cliente= "Todo" if cliente_visual == "Todo" else mapa_estados[cliente_visual]
+
+    #mapear municipios
+    mapa_municipios={
+        "Bolivar":"bolivar",
+        "Urbaneja":"urbaneja",
+        "Sotillo":"sotillo"
+    }
 
     # Filtro por municipio
-    ubicacion = st.sidebar.selectbox("Ubicación/Municipo:", ["Todo", "bolivar", "urbaneja", "sotillo"])
+    ubicacion_visual = st.sidebar.selectbox("Ubicación/Municipo:", ["Todo"] + list(mapa_municipios.keys()))
+    ubicacion = "Todo" if ubicacion_visual =="Todo" else mapa_municipios[ubicacion_visual]
 
     # Filtro por año (con año más reciente preseleccionado)
     fecha = st.sidebar.selectbox("Año:", options=anios_disponibles,
@@ -190,7 +233,6 @@ if pagina == "Dashboard de Clientes":
         "Todo", "Enero", "Febrero", "Marzo", "Abril", "Mayo",
         "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ])
-
 
 #================================
 # 🧮 Aplicar filtros
@@ -219,24 +261,11 @@ if pagina == "Dashboard de Clientes":
      }
      df_filtrado = df_filtrado[df_filtrado["f_instalacion_cliente"].dt.month_name() == MESES[mes]]
 
-    # Ordenar por fecha de transacción para tomar el último estado por cliente
-    df_filtrado = df_filtrado.sort_values(by='f_transaccion', kind='mergesort')
+    df_filtrado = df_filtrado.sort_values(by='f_transaccion', kind='mergesort') 
 
-    #Eliminar duplicados manteniendo solo el último registro por cliente
     df_estado_unico = df_filtrado[~df_filtrado.index.duplicated(keep='last')]
 
-    # Filtrar solo clientes con fecha de instalación válida
-    df_con_fecha = df_estado_unico[df_estado_unico['f_instalacion_cliente'].notna()].copy()
-
-    # Ordenar por fecha de instalación
-    df_con_fecha = df_con_fecha.sort_values(by='f_instalacion_cliente')
-
-    # Eliminar duplicados por cliente (quedarse con la primera instalación)
-    df_nuevos = df_con_fecha[~df_con_fecha.index.duplicated(keep='first')].copy()
-
-    # Extraer número de mes desde la fecha
-    df_nuevos['mes'] = df_nuevos['f_instalacion_cliente'].dt.month
-
+    df_estado_unico['mes_nombre'] = df_estado_unico['mes'].apply(lambda x: MESES_ORDEN[x-1])
 
 # ================================
 # Subtítulo dinámico con filtros
@@ -249,8 +278,7 @@ if pagina == "Dashboard de Clientes":
     if fecha != "Todo":
             subtitulo += f" | Año: {fecha}"
     if mes != "Todo":
-            subtitulo += f" | Mes: {mes}"
-
+            subtitulo += f" | Mes: {mes}"      
 # ===========================
 # KPIs y gráficos según lógica
 # ===========================
@@ -263,31 +291,43 @@ if pagina == "Dashboard de Clientes":
 # =========================================
 # 📈 KPIs por cliente único (último estado)
 # =========================================
-
         # Calcular KPIs
         total_clientes = df_estado_unico.index.nunique() #clientes totales
         activos = (df_estado_unico["id_estatus_servicio_cliente"] == "activo").sum() #clientes activos
         suspendidos = (df_estado_unico["id_estatus_servicio_cliente"] == "suspendido").sum() #clientes suspendidos
         retirados = (df_estado_unico["id_estatus_servicio_cliente"] == "retirado").sum() #clientes retirados
-        nuevos = df_nuevos.index.nunique() # Contar clientes nuevos
+
+# ============================ 
+# Ventas (Nuevos ingresos) 
+# ============================ 
+# Primera instalación histórica por  cliente 
+        df_primeras = (df.sort_values('f_instalacion_cliente') 
+                       .groupby(level=0) .first() )
+
+        df_primeras['anio'] = df_primeras['f_instalacion_cliente'].dt.year 
+        df_primeras['mes'] = df_primeras['f_instalacion_cliente'].dt.month 
+        df_primeras['mes_nombre'] = df_primeras['mes'].apply(lambda x: MESES_ORDEN[x-1])
+
+         # Clientes nuevos en el año seleccionado
+        df_nuevos = df_primeras[df_primeras['anio'] == fecha].copy()
+
+        # KPI
+        nuevos = df_nuevos.index.nunique()
+
+        # Agrupar por mes y contar nuevos clientes
+        resumen_nuevos = (df_primeras.groupby('mes').size()
+                          .reindex(MESES_ORDEN, fill_value=0)
+                          .reset_index(name="cantidad"))
+
+        # Gráfico
+        resumen_nuevos = ( df_nuevos.groupby('mes_nombre')
+                          .size() 
+                          .reindex(MESES_ORDEN, fill_value=0) 
+                          .reset_index(name='cantidad') )
 
 # ======================================
 # 📊 Gráficos de líneas por estado y nuevo
-# =======================================
-
-    # Diccionario para ordenar meses en español
-        MESES_ORDEN = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
-               "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
-
-        # Extraer el nombre del mes desde la fecha de instalación (en español)
-        df_estado_unico['mes'] = df_estado_unico['f_instalacion_cliente'].dt.month_name(locale="es_ES")
-
-        # Convertir el número de mes en df_nuevos a nombre de mes usando el diccionario
-        df_nuevos['mes'] = df_nuevos['mes'].apply(lambda x: MESES_ORDEN[x - 1])
-
-        # Convertir la columna 'mes' en una categoría ordenada para asegurar el orden correcto en los gráficos
-        df_nuevos['mes'] = pd.Categorical(df_nuevos['mes'], categories=MESES_ORDEN, ordered=True)
-
+# ======================================= 
 # ==========================
 # Activos
 # ==========================
@@ -295,7 +335,7 @@ if pagina == "Dashboard de Clientes":
         # Agrupar clientes activos por mes y contar cuántos hay en cada uno
         resumen_activos = (
         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente'] == "activo"]
-        .groupby('mes').size()
+        .groupby('mes_nombre').size()
         .reindex(MESES_ORDEN, fill_value=0)
         .reset_index(name="cantidad")
         )
@@ -303,11 +343,12 @@ if pagina == "Dashboard de Clientes":
         # Crear gráfico de línea para mostrar la evolución mensual de clientes activos
         fig_activos = px.line( #crear figura lineal 
             resumen_activos, #llamar el agrupamiento de cliente por mes
-            x="mes",  #eje x mostrando datos de mes
+            x="mes_nombre",  #eje x mostrando datos de mes
             y="cantidad", #eje y mostrando datos para cantidad
             markers=True, #fondo de la tendencia
             title="✅ Activos", #titulo de la figura
-            line_shape="spline" #suavizar la linea
+            line_shape="spline", #suavizar la linea
+            text="cantidad" # para hacer ver el numero por fuera
             )
 
         # Actualizar diseño del gráfico
@@ -318,7 +359,8 @@ if pagina == "Dashboard de Clientes":
                       )
 
         # Personalizar el color y el grosor de la linea
-        fig_activos.update_traces(line=dict(color="#2ECC71", width=2))  # verde
+        fig_activos.update_traces(line=dict(color="#2ECC71", width=2),
+                                  textfont=dict(color="black", size=14))  # ✅ texto en negro intenso y más grande
 
 # ========================
 # Suspendidos
@@ -327,7 +369,7 @@ if pagina == "Dashboard de Clientes":
         # Agrupar clientes suspendidos por mes
         resumen_suspendidos = (
         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente'] == "suspendido"] #filtrar suspendidos
-        .groupby('mes').size() # contar por mes
+        .groupby('mes_nombre').size() # contar por mes
         .reindex(MESES_ORDEN, fill_value=0) # asegurar todos los meses
         .reset_index(name="cantidad") # resetear índice
          )
@@ -335,11 +377,13 @@ if pagina == "Dashboard de Clientes":
         # Gráfico de línea para suspendidos
         fig_suspendidos = px.line(
             resumen_suspendidos, 
-            x="mes", 
+            x="mes_nombre", 
             y="cantidad", 
             markers=True, 
             title="⚠️ Suspendidos",
-            line_shape="spline")
+            line_shape="spline",
+            text="cantidad"
+            )
 
         # Actualizar diseño del gráfico para ajustes visuales
         fig_suspendidos.update_layout(height=200, margin=dict(l=20,r=20,t=50,b=20),
@@ -348,7 +392,8 @@ if pagina == "Dashboard de Clientes":
                       paper_bgcolor="rgba(247, 247, 247, 0.5)")
 
         # Personalizar línea
-        fig_suspendidos.update_traces(line=dict(color="#F1C40F", width=2))  # amarillo
+        fig_suspendidos.update_traces(line=dict(color="#F1C40F", width=2),
+                                      textfont=dict(color="black", size=14))  # ✅ texto en negro intenso y más grande
 
 # =====================
 # Retirados
@@ -357,7 +402,7 @@ if pagina == "Dashboard de Clientes":
         # Agrupar clientes retirados por mes
         resumen_retirados = (
         df_estado_unico[df_estado_unico['id_estatus_servicio_cliente'] == "retirado"]
-        .groupby('mes').size()
+        .groupby('mes_nombre').size()
         .reindex(MESES_ORDEN, fill_value=0)
         .reset_index(name="cantidad")
         )
@@ -365,11 +410,13 @@ if pagina == "Dashboard de Clientes":
         # Gráfico de línea para retirados
         fig_retirados = px.line(
             resumen_retirados, 
-            x="mes", 
+            x="mes_nombre", 
             y="cantidad", 
             markers=True, 
             title="❌ Retirados",
-            line_shape="spline")
+            line_shape="spline",
+            text="cantidad"
+            )
 
         # Actualizar diseño del gráfico
         fig_retirados.update_layout(height=200, margin=dict(l=20,r=20,t=50,b=20),
@@ -378,28 +425,23 @@ if pagina == "Dashboard de Clientes":
                       paper_bgcolor="rgba(247, 247, 247, 0.5)")
 
         # Personalizar línea
-        fig_retirados.update_traces(line=dict(color="#E74C3C", width=2))  # rojo
+        fig_retirados.update_traces(line=dict(color="#E74C3C", width=2),
+                                    textfont=dict(color="black", size=14))  # ✅ texto en negro intenso y más grande rojo
 
 # ======================
 # Nuevos
 # ======================
 
-        # Agrupar por mes y contar clientes únicos
-        resumen_nuevos = (
-           df_nuevos.groupby('mes')
-          .size()
-          .reindex(MESES_ORDEN, fill_value=0)
-          .reset_index(name="cantidad")
-       )
-
         # Gráfico de línea para nuevos
         fig_nuevos = px.line(
             resumen_nuevos, 
-            x="mes", 
+            x="mes_nombre", 
             y="cantidad", 
             markers=True, 
             title="🆕 Nuevos",
-            line_shape="spline")
+            line_shape="spline",
+            text="cantidad"
+            )
 
         # Actualizar diseño del gráfico
         fig_nuevos.update_layout(height=200, margin=dict(l=20,r=20,t=50,b=20),
@@ -408,7 +450,8 @@ if pagina == "Dashboard de Clientes":
                       paper_bgcolor="rgba(247, 247, 247, 0.5)")
 
         # Personalizar línea
-        fig_nuevos.update_traces(line=dict(color="#3498DB", width=2))  # azul
+        fig_nuevos.update_traces(line=dict(color="#3498DB", width=2),
+                                 textfont=dict(color="black", size=14))  # ✅ texto en negro intenso y más grande azul
 
 #=================================
 # Graficos de planes de internet
@@ -441,25 +484,28 @@ if pagina == "Dashboard de Clientes":
          x="cantidad",
          y="id_plan_internet_cliente",
          color="estado_cliente",
+         title="Distribucion por planes de internet, activos,suspendidos,retirados",
          text="cantidad",
          category_orders={"id_plan_internet_cliente": orden_planes}  # orden aplicado
          )
 
         # Ajustar diseño del gráfico
         fig_planes_estado.update_layout(
-         height=450, #tamaño de figura
-         xaxis_title="Planes de Internet", #titulo para eje x
-         yaxis_title="Cantidad de Clientes", #titulo para eje y
-         barmode="stack"  # barras apiladas
-       )
+          height=500,
+          width=900,
+          xaxis=dict(tickangle=-45),
+          plot_bgcolor="rgba(247, 247, 247, 0.5)",
+          paper_bgcolor="rgba(247, 247, 247, 0.5)",
+          showlegend=True,   # ✅ activar la leyenda
+          legend=dict(
+          title="Estado del Cliente",   # título de la leyenda
+          orientation="v",              # vertical
+          yanchor="bottom", y=0,           # anclar abajo
+          xanchor="right", x=1       # ubicar a la derecha del gráfico
+         )
+        )
 
         fig_planes_estado.update_traces(textposition="inside") # mostrar cantidad dentro de barras
-        fig_planes_estado.update_layout(height=500,width=900, #tamaño 
-                      xaxis=dict(tickangle=-45),
-                      plot_bgcolor="rgba(247, 247, 247, 0.5)",
-                      paper_bgcolor="rgba(247, 247, 247, 0.5)",
-                      showlegend=False)
-
 # ============================
 # Por Municipio
 # ============================
@@ -508,7 +554,9 @@ if pagina == "Dashboard de Clientes":
           "✅ Activos": "#2ECC71",
           "⚠️ Suspendidos": "#F1C40F",
           "❌ Retirados": "#E74C3C"
-           })
+           },
+            text="Cantidad"
+        )
 
         # Actualizar diseño del gráfico
         fig_municipio.update_traces(textposition="outside")
@@ -697,7 +745,7 @@ elif pagina == "Dashboard Facturacion":
     st.sidebar.subheader("Filtros de Facturacion")
 
     # Filtro para seleccionar tipo de dato (por ahora solo "ingresos")
-    tipo_dato = st.sidebar.selectbox("Tipo de facturacion:", ["ingresos"])
+    tipo_dato = st.sidebar.selectbox("Tipo de facturacion:", ["Ingresos"])
 
     # Filtro para seleccionar el año de facturación
     anio_factura = st.sidebar.selectbox("Año:", options=anios_disponibles,
@@ -717,7 +765,7 @@ elif pagina == "Dashboard Facturacion":
     subtitulo2 = "📍 Filtros aplicados:" 
 
     # Si el tipo de dato no es "ingresos", agregarlo al subtítulo (por si se agregan más tipos en el futuro)
-    if tipo_dato != "ingresos": 
+    if tipo_dato != "Ingresos": 
         subtitulo2 = f"📍 Tipo de dato: {tipo_dato}"   
     # Agregar año al subtítulo
     if anio_factura != "Todo":
@@ -749,7 +797,7 @@ elif pagina == "Dashboard Facturacion":
     subtitulo2 = "📍 Filtros aplicados:" 
 
     # Si el tipo de dato no es "ingresos", agregarlo al subtítulo (por si se agregan más tipos en el futuro)
-    if tipo_dato != "ingresos": 
+    if tipo_dato != "Ingresos": 
         subtitulo2 = f"📍 Tipo de dato: {tipo_dato}"   
     # Agregar año al subtítulo
     if anio_factura != "Todo":
@@ -818,11 +866,10 @@ elif pagina == "Dashboard Facturacion":
         labels={"total_factura":"Monto Facturado","mes":"Mes"}, 
         title="💰 Monto Facturado", #titulo
         markers=True, # activa los puntos en la curva
-        line_shape="spline" #suavizar linea
+        line_shape="spline", #suavizar linea
     )
     # Personalizar tooltip con formato de moneda
-    fig_facturado.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}") # formato moneda para hover
-    # Ajustes visuales del gráfico
+    fig_facturado.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}") 
     fig_facturado.update_layout(height=200, margin=dict(l=20,r=20,t=40,b=20),
                       xaxis=dict(tickangle=-45),
                       plot_bgcolor="rgba(247, 247, 247, 0.5)",
@@ -840,7 +887,7 @@ elif pagina == "Dashboard Facturacion":
         labels={"neto_transaccion":"Monto Cobrado","mes":"Mes"},
         title="💵 Monto Cobrado",
         markers=True,  # activa los puntos en la curva
-        line_shape="spline"
+        line_shape="spline",
     )
     fig_cobrado.update_traces(hovertemplate="Mes: %{x}<br>Facturado: $%{y:,.2f}")
 
