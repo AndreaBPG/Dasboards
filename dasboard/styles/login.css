@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+body, .stApp, .login-info, .login-box {
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Contenedor principal del login */
+.login-container {
+    display: flex;
+    align-items: center;
+    min-height: 10vh;
+    padding: 60px 60px 60px 20px;
+}
+
+.login-box {
+    padding: 40px 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 700px;
+    min-height: 700px;
+    text-align: center;
+    margin-left: auto; /* Esto lo empuja a la derecha */
+}
+
+
+/* Campos de entrada */
+.input-field {
+    width: 100%;
+    padding: 14px 18px;               /* Más espacio interno */
+    margin-bottom: 50px;              /* Espacio entre campos */
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+/* Botón de login */
+.login-button {
+    background-color: #01226b;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 100%;
+    padding: 14px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #1e40af;
+}
+
+
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 70vh;
+    gap: 100px;
+    padding: 0 120px;
+}
+
+.login-info {
+    flex: 1;
+    max-width: 700px;
+    color: #222;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.login-info h1 {
+    font-size: 60px;
+    margin-bottom: 25px;
+}
+
+.login-info .intro {
+    font-size: 26px;
+    margin-bottom: 50px;
+    line-height: 1.5;
+}
+
+.login-info .quote {
+    font-size: 24px;
+    color: #444;
+    margin: 40px 0;
+    border-left: 6px solid #0072C6;
+    padding-left: 25px;
+}
+
+.login-info h2 {
+    font-size: 32px;
+    margin-top: 50px;
+    margin-bottom: 25px;
+}
+
+.login-info .benefits {
+    list-style-type: none;
+    padding-left: 0;
+    font-size: 24px;
+}
+
+.login-info .benefits li {
+    margin-bottom: 18px;
+}
+
+
+
+
