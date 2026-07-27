@@ -3,7 +3,6 @@
 
 # In[52]:
 
-
 import streamlit as st # para la creación del dashboard
 import os # para operaciones del sistema
 import numpy as np # para cálculos numéricos
