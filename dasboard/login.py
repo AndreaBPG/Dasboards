@@ -215,23 +215,30 @@ if "pin" in st.query_params and st.query_params["pin"] == "2026":
       <div class="user-box">
         <h2>👤 Crear nuevo usuario</h2>
 
-       <form method="get">
+      <form method="get">
             <input name="nuevo_nombre" placeholder="Nombre de usuario" class="input-field" />
             <input name="nuevo_clave" type="password" placeholder="Clave" class="input-field" />
             <button class="login-button" type="submit">REGISTRAR</button>
-       </form>          
+      </form>          
        
-       <p style="text-align:center; margin-top:15px;">
-        <a href="?pin=2026&ver_usuarios=1" style="color:#0072C6; font-weight:bold; cursor:pointer;">
-        Ver usuarios registrados
-        </a>
-        </p>
+      <form method="get" style="margin-top:10px;">
+        <input type="hidden" name="pin" value="2026">
+        <input type="hidden" name="ver_usuarios" value="1">
+        <button class="login-button" type="submit"> Ver usuarios registrados</button>
+      </form>
+        
+      <form method="get" style="margin-top:10px;">
+        <button type="submit"
+        style="background-color:#ccc; color:#333; border:none; padding:6px 12px;
+               border-radius:5px; cursor:pointer; font-size:12px;">
+        ← Cerrar
+        </button>
+      </form>
 
       </div>
     </div>
     """, unsafe_allow_html=True)
  
-    
 # ---------------------------------------------------------
 # PROCESAR REGISTRO DE NUEVO USUARIO
 # ---------------------------------------------------------
